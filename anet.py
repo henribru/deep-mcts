@@ -11,6 +11,7 @@ from mcts import Action, State
 
 # DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 DEVICE = torch.device("cpu")
+# DEVICE = torch.device("cuda")
 
 
 def cross_entropy(pred, soft_targets, reduction='mean'):

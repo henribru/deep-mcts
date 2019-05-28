@@ -84,13 +84,11 @@ class ConvolutionalHexNet(nn.Module):
     def __init__(self, num_residual: int, grid_size: int):
         super().__init__()
         self.conv1 = nn.Conv2d(in_channels=3, out_channels=16, kernel_size=3, padding=1)
-        # self.bn1 = nn.BatchNorm2d(256)
-        # self.residual_blocks = [
-        #     ResidualBlock(in_channels=1, out_channels=1, kernel_size=3)
-        #     for _ in range(num_residual)
-        # ]
-        self.conv2 = nn.Conv2d(in_channels=16, out_channels=16, kernel_size=3, padding=1)
-        # self.bn2 = nn.BatchNorm2d(256)
+        self.bn1 = nn.BatchNorm2d(16)
+        self.residual_blocks = [
+            ResidualBlock(in_channels=16, out_channels=16, kernel_size=3)
+            for _ in range(num_residual)
+        ]
         self.policy_head = PolicyHead(16)
         self.value_head = ValueHead(grid_size, 16)
 
@@ -98,17 +96,19 @@ class ConvolutionalHexNet(nn.Module):
         input = x
         assert input.shape == (input.shape[0], 3, input.shape[2], input.shape[3])
         x = self.conv1(x)
-        # x = self.bn1(x)
+        x = self.bn1(x)
         x = F.relu(x)
-        # for residual_block in self.residual_blocks:
-        #     x = residual_block(x)
-        x = self.conv2(x)
-        x = F.relu(x)
-        # x = self.bn2(x)
+        for residual_block in self.residual_blocks:
+            x = residual_block(x)
         value, probabilities = self.value_head(x), self.policy_head(x)
         assert probabilities.shape == (input.shape[0], 1, input.shape[2], input.shape[3])
         assert value.shape == (input.shape[0], 1)
         return value, probabilities
+
+    def to(self, *args, **kwargs):
+        res = super().to(*args, **kwargs)
+        res.residual_blocks = [residual_block.to(*args, **kwargs) for residual_block in res.residual_blocks]
+        return res
 
 
 class ConvolutionalHexANET(ANET):
@@ -116,7 +116,7 @@ class ConvolutionalHexANET(ANET):
     state_manager: HexStateManager
 
     def __init__(self, grid_size: int):
-        self.net = ConvolutionalHexNet(1, grid_size).to(DEVICE)
+        self.net = ConvolutionalHexNet(3, grid_size).to(DEVICE)
         self.grid_size = grid_size
         self.policy_criterion = cross_entropy
         self.value_criterion = nn.MSELoss().to(DEVICE)
