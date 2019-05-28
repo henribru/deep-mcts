@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "hex"
+version = "0.1.0"
+description = ""
+authors = ["Your Name <you@example.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+torch = {path = "vendor/torch-1.1.0-cp37-cp37m-win_amd64.whl"}
+torchvision = {path = "vendor/torchvision-0.3.0-cp37-cp37m-win_amd64.whl"}
+
+[tool.poetry.dev-dependencies]
+black = {version = "^18.3-alpha.0",allows-prereleases = true}
+mypy = "^0.701.0"
+pylint = "^2.3"
+ipython = "^7.5"
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"
