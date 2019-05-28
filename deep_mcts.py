@@ -24,10 +24,10 @@ def train(
         for state, next_state, action, visit_distribution in mcts.run():
             examples.append((state, visit_distribution))
             yield state, next_state, action, visit_distribution
-        value = 1 if state.player == 0 else -1
-        for example in examples:
-            state, visit_distribution = example
-            replay_buffer.append((state, visit_distribution, value))
+        winner = state.player
+        for state, visit_distribution in examples:
+            # We want the target value to be from the perspective of the current player in that state
+            replay_buffer.append((state, visit_distribution, 1 if state.player == winner else -1))  # TODO?
         anet.train(replay_buffer)
         results = topp([functools.partial(random_anet.greedy_policy, epsilon=0.10), functools.partial(anet.greedy_policy, epsilon=0.10)], 25, state_manager)
         print(results)

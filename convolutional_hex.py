@@ -170,11 +170,15 @@ class ConvolutionalHexANET(ANET):
                 for state in states
             ]
         )
-        states = np.stack([state.grid for state in states], axis=0)
-        first_player = states == 0
-        second_player = states == 1
+        # We want everything to be from the perspective of the current player.
+        # We also want a consistent orientation, the current player's goal
+        # should always be connecting north-south. This means we need to flip
+        # the board for player 0.
+        grids = np.stack([state.grid if state.player == 1 else np.array(state.grid).T for state in states], axis=0)
+        current_player = grids == np.array([state.player for state in states]).reshape(-1, 1, 1)
+        other_player = grids == np.array([0 if state.player == 1 else 1 for state in states]).reshape(-1, 1, 1)
         #  assert np.all((first_player.sum(axis=1) - second_player.sum(axis=1)) <= 1)
-        states = np.stack((first_player, second_player, players), axis=1)
+        states = np.stack((current_player, other_player, players), axis=1)
         tensor = torch.as_tensor(states, device=DEVICE)
         assert tensor.shape == (len(states), 3, self.grid_size, self.grid_size)
         return tensor
