@@ -52,41 +52,47 @@ class ResidualBlock(nn.Module):
 
 
 class PolicyHead(nn.Module):
-    def __init__(self):
+    def __init__(self, in_channels: int):
         super().__init__()
-        self.conv1 = nn.Conv2d(in_channels=1, out_channels=1, kernel_size=3, padding=1)
+        self.conv1 = nn.Conv2d(in_channels=in_channels, out_channels=in_channels, kernel_size=3, padding=1)
+        self.conv2 = nn.Conv2d(in_channels=in_channels, out_channels=1, kernel_size=3, padding=1)
 
     def forward(self, x):
         x = self.conv1(x)
+        x = F.relu(x)
+        x = self.conv2(x)
         return x
 
 
 class ValueHead(nn.Module):
-    def __init__(self, grid_size: int):
+    def __init__(self, grid_size: int, in_channels: int):
         super().__init__()
-        self.grid_size = grid_size
-        self.conv1 = nn.Conv2d(in_channels=1, out_channels=1, kernel_size=3, padding=1)
-        self.out = nn.Linear(in_features=grid_size ** 2, out_features=1)
+        self.conv1 = nn.Conv2d(in_channels=in_channels, out_channels=1, kernel_size=3, padding=1)
+        self.fc1 = nn.Linear(in_features=grid_size ** 2, out_features=64)
+        self.fc2 = nn.Linear(in_features=64, out_features=1)
 
     def forward(self, x):
         x = self.conv1(x)
-        x = self.out(x.reshape(-1, self.grid_size ** 2))
+        x = F.relu(x)
+        x = self.fc1(x.reshape(x.shape[0], -1))
+        x = F.relu(x)
+        x = self.fc2(x)
         return x
 
 
 class ConvolutionalHexNet(nn.Module):
     def __init__(self, num_residual: int, grid_size: int):
         super().__init__()
-        self.conv1 = nn.Conv2d(in_channels=3, out_channels=1, kernel_size=3, padding=1)
+        self.conv1 = nn.Conv2d(in_channels=3, out_channels=16, kernel_size=3, padding=1)
         # self.bn1 = nn.BatchNorm2d(256)
         # self.residual_blocks = [
         #     ResidualBlock(in_channels=1, out_channels=1, kernel_size=3)
         #     for _ in range(num_residual)
         # ]
-        self.conv2 = nn.Conv2d(in_channels=1, out_channels=1, kernel_size=3, padding=1)
+        self.conv2 = nn.Conv2d(in_channels=16, out_channels=16, kernel_size=3, padding=1)
         # self.bn2 = nn.BatchNorm2d(256)
-        self.policy_head = PolicyHead()
-        self.value_head = ValueHead(grid_size)
+        self.policy_head = PolicyHead(16)
+        self.value_head = ValueHead(grid_size, 16)
 
     def forward(self, x):
         input = x
@@ -97,6 +103,7 @@ class ConvolutionalHexNet(nn.Module):
         # for residual_block in self.residual_blocks:
         #     x = residual_block(x)
         x = self.conv2(x)
+        x = F.relu(x)
         # x = self.bn2(x)
         value, probabilities = self.value_head(x), self.policy_head(x)
         assert probabilities.shape == (input.shape[0], 1, input.shape[2], input.shape[3])
@@ -113,7 +120,7 @@ class ConvolutionalHexANET(ANET):
         self.grid_size = grid_size
         self.policy_criterion = cross_entropy
         self.value_criterion = nn.MSELoss().to(DEVICE)
-        self.optimizer = torch.optim.SGD(self.net.parameters(), lr=0.01, momentum=0.9)
+        self.optimizer = torch.optim.SGD(self.net.parameters(), lr=0.1, momentum=0.9)
         self.state_manager = HexStateManager(grid_size)
 
     def mask_illegal_moves(self, states: torch.Tensor, output: torch.Tensor) -> torch.Tensor:

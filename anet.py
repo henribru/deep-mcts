@@ -71,7 +71,7 @@ class ANET(ABC):
 
     def train(self, replay_buffer: Sequence[Tuple[S, Dict[A, float], float]]) -> None:
         self.optimizer.zero_grad()
-        examples = random.sample(replay_buffer, min(32, len(replay_buffer)))
+        examples = random.sample(replay_buffer, min(512, len(replay_buffer)))
         states, probability_targets, value_targets = zip(*examples)
         value_targets = torch.tensor(value_targets, dtype=torch.float32, device=DEVICE).reshape(-1, 1)
         assert value_targets.shape[0] == len(examples)
