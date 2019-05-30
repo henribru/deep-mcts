@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import abstractmethod, ABC
 from dataclasses import dataclass
-from typing import TypeVar, Dict, Generic
+from typing import TypeVar, Dict, Generic, List
 
 
 @dataclass(frozen=True)
@@ -30,6 +30,10 @@ class GameManager(ABC, Generic[S, A]):
 
     @abstractmethod
     def generate_child_state(self, parent: S, action: A) -> S:
+        ...
+
+    @abstractmethod
+    def legal_actions(self, state: S) -> List[A]:
         ...
 
     @abstractmethod

@@ -4,7 +4,7 @@ import random
 from dataclasses import dataclass
 from typing import Dict, Tuple, List
 
-from mcts import State, Action, GameManager, MCTS
+from deep_mcts.mcts import State, Action, GameManager, MCTS
 
 
 @dataclass(frozen=True)

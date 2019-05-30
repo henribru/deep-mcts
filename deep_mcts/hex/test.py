@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import train
-from hex import HexManager
-from hex.convolutional import ConvolutionalHexANET
+from deep_mcts import train
+from deep_mcts.hex import HexManager
+from deep_mcts.hex import ConvolutionalHexANET
 
 
 def hex_simulator(

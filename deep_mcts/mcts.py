@@ -3,7 +3,7 @@ from __future__ import annotations
 from math import sqrt
 from typing import Callable, Dict, List, Tuple, Iterable, TypeVar, Generic
 
-from game import GameManager, State, Action
+from deep_mcts.game import GameManager, State, Action
 
 S = TypeVar("S", bound=State)
 A = TypeVar("A", bound=Action)

@@ -9,11 +9,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim
 
-from anet import ANET, cross_entropy, DEVICE
-from hex.game import HexAction, HexState, HexManager
+from deep_mcts.gamenet import GameNet, cross_entropy, DEVICE
+from deep_mcts.hex.game import HexAction, HexState, HexManager
 
 
-class FullyConnectedHexNet(nn.Module):
+class FullyConnectedHexModule(nn.Module):
     def __init__(self, grid_size):
         super().__init__()
         self.grid_size = grid_size
@@ -29,12 +29,12 @@ class FullyConnectedHexNet(nn.Module):
         return x
 
 
-class FullyConnectedHexANET(ANET[HexState, HexAction]):
+class FullyConnectedHexNet(GameNet[HexState, HexAction]):
     grid_size: int
     state_manager: HexManager
 
     def __init__(self, grid_size: int):
-        self.net = FullyConnectedHexNet(grid_size)
+        self.net = FullyConnectedHexModule(grid_size)
         self.grid_size = grid_size
         self.policy_criterion = cross_entropy
         self.optimizer = torch.optim.SGD(self.net.parameters(), lr=0.1, momentum=0.9)

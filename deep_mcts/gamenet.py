@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from mcts import Action, State
+from deep_mcts.mcts import Action, State
 
 # DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 DEVICE = torch.device("cpu")
@@ -34,14 +34,14 @@ S = TypeVar("S", bound=State)
 A = TypeVar("A", bound=Action)
 
 
-class ANET(ABC, Generic[S, A]):
+class GameNet(ABC, Generic[S, A]):
     net: nn.Module
     policy_criterion: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
     value_criterion: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
     optimizer: torch.optim.Optimizer
 
     def forward(self, state: S) -> Tuple[float, np.ndarray]:
-        states = self.states_to_tensor([state])
+        states = self.state_to_tensor(state)
         value, probabilities = self.net.forward(states.float())
         shape = probabilities.shape
         assert probabilities.shape == shape
@@ -72,9 +72,8 @@ class ANET(ABC, Generic[S, A]):
     def evaluate_state(self, state: S) -> Tuple[float, Dict[Action, float]]:
         ...
 
-    def train(self, replay_buffer: Sequence[Tuple[S, Dict[A, float], float]]) -> None:
+    def train(self, examples: Sequence[Tuple[S, Dict[A, float], float]]) -> None:
         self.optimizer.zero_grad()
-        examples = random.sample(replay_buffer, min(512, len(replay_buffer)))
         states, probability_targets, value_targets = zip(*examples)
         value_targets = torch.tensor(value_targets, dtype=torch.float32, device=DEVICE).reshape((-1, 1))
         assert value_targets.shape[0] == len(examples)
@@ -127,7 +126,7 @@ class ANET(ABC, Generic[S, A]):
         ...
 
     @classmethod
-    def from_path(cls, path, *args, **kwargs) -> ANET:
+    def from_path(cls, path, *args, **kwargs) -> GameNet:
         anet = cls(*args, **kwargs)
         anet.net.load_state_dict(torch.load(path))
         return anet

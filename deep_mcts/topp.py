@@ -3,9 +3,8 @@ from __future__ import annotations
 import itertools
 from typing import Tuple, List, Callable, TypeVar
 
-from game import State, Action
-from mcts import GameManager, BehaviorPolicy
-
+from deep_mcts.game import State, Action
+from deep_mcts.mcts import GameManager
 
 S = TypeVar("S", bound=State)
 A = TypeVar("A", bound=Action)

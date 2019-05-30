@@ -9,8 +9,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim
 
-from anet import ANET, cross_entropy, DEVICE
-from hex.game import HexAction, HexState, HexManager
+from deep_mcts.gamenet import GameNet, cross_entropy, DEVICE
+from deep_mcts.hex.game import HexAction, HexState, HexManager
 
 
 class ResidualBlock(nn.Module):
@@ -81,7 +81,7 @@ class ValueHead(nn.Module):
         return x
 
 
-class ConvolutionalHexNet(nn.Module):
+class ConvolutionalHexModule(nn.Module):
     def __init__(self, num_residual: int, grid_size: int):
         super().__init__()
         self.conv1 = nn.Conv2d(in_channels=3, out_channels=16, kernel_size=3, padding=1)
@@ -112,12 +112,12 @@ class ConvolutionalHexNet(nn.Module):
         return res
 
 
-class ConvolutionalHexANET(ANET[HexState, HexAction]):
+class ConvolutionalHexNet(GameNet[HexState, HexAction]):
     grid_size: int
     state_manager: HexManager
 
     def __init__(self, grid_size: int):
-        self.net = ConvolutionalHexNet(3, grid_size).to(DEVICE)
+        self.net = ConvolutionalHexModule(3, grid_size).to(DEVICE)
         self.grid_size = grid_size
         self.policy_criterion = cross_entropy
         self.value_criterion = nn.MSELoss().to(DEVICE)
