@@ -1,63 +1,29 @@
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from math import sqrt
+from typing import Callable, Dict, List, Tuple, Iterable, TypeVar, Generic
 
-from math import log, sqrt
-from typing import Callable, Dict, List, TypeVar, Tuple
-
-
-@dataclass(frozen=True)
-class State(ABC):
-    player: int
-
-
-@dataclass(frozen=True)
-class Action(ABC):
-    pass
-
+from game import GameManager, State, Action
 
 S = TypeVar("S", bound=State)
 A = TypeVar("A", bound=Action)
 
 
-class StateManager(ABC):
-    @abstractmethod
-    def initial_game_state(self) -> S:
-        ...
-
-    @abstractmethod
-    def generate_child_states(self, parent: S) -> Dict[A, S]:
-        ...
-
-    @abstractmethod
-    def generate_child_state(self, parent: S, action: A) -> S:
-        ...
-
-    @abstractmethod
-    def is_final_state(self, state: S) -> bool:
-        ...
-
-    @abstractmethod
-    def evaluate_final_state(self, state: S) -> float:
-        ...
-
-
-class Node:
-    state: State
-    children: Dict[Action, Node]
+class Node(Generic[S, A]):
+    state: S
+    children: Dict[A, Node[S, A]]
     E: int
     N: int
     P: float
 
-    def __init__(self, state: State):
+    def __init__(self, state: S):
         self.state = state
         self.children = {}
         self.E = 0
         self.N = 0
         self.P = 0
 
-    def u(self, parent: Node) -> float:
+    def u(self, parent: Node[S, A]) -> float:
         c = 1
         return c * self.P * sqrt(parent.N) / (1 + self.N)
 
@@ -69,19 +35,16 @@ class Node:
         return self.E / self.N
 
 
-BehaviorPolicy = Callable[[State], Action]
-StateEvaluator = Callable[[State], Tuple[float, Dict[Action, float]]]
-
-
-class MCTS:
-    state_manager: StateManager
-    root: Node
+class MCTS(Generic[S, A]):
+    state_manager: GameManager[S, A]
+    root: Node[S, A]
     M: int
-    behavior_policy: BehaviorPolicy
+    behavior_policy: Callable[[S], A]
+    state_evaluator: Callable[[S], Tuple[float, Dict[A, float]]]
 
     def __init__(
-            self, state_manager: StateManager, M: int, behavior_policy: BehaviorPolicy,
-            state_evaluator: StateEvaluator):
+            self, state_manager: GameManager[S, A], M: int, behavior_policy: Callable[[S], A],
+            state_evaluator: Callable[[S], Tuple[float, Dict[A, float]]]):
         self.state_manager = state_manager
         self.M = M
         self.behavior_policy = behavior_policy
@@ -89,7 +52,7 @@ class MCTS:
         initial_state = self.state_manager.initial_game_state()
         self.root = Node(initial_state)
 
-    def tree_search(self) -> List[Node]:
+    def tree_search(self) -> List[Node[S, A]]:
         path = [self.root]
         node = self.root
         while node.children:
@@ -100,7 +63,7 @@ class MCTS:
             path.append(node)
         return path
 
-    def expand_node(self, node: Node):
+    def expand_node(self, node: Node[S, A]) -> None:
         child_states = self.state_manager.generate_child_states(node.state)
         node.children = {action: Node(child_state) for action, child_state in child_states.items()}
         value, probabilities = self.state_evaluator(node.state)
@@ -108,7 +71,7 @@ class MCTS:
         for action, node in node.children.items():
             node.P = probabilities[action]
 
-    def evaluate_leaf(self, leaf_node: Node, rollout=False) -> float:
+    def evaluate_leaf(self, leaf_node: Node[S, A], rollout=False) -> float:
         if not rollout:
             return leaf_node.E
         state = leaf_node.state
@@ -117,12 +80,12 @@ class MCTS:
             state = self.state_manager.generate_child_state(state, action)
         return self.state_manager.evaluate_final_state(state)
 
-    def backpropagate(self, path: List[Node], evaluation: float):
+    def backpropagate(self, path: List[Node[S, A]], evaluation: float) -> None:
         for node in path:
             node.N += 1
             node.E += evaluation
 
-    def run(self):
+    def run(self) -> Iterable[Tuple[S, S, A, Dict[A, float]]]:
         while not self.state_manager.is_final_state(self.root.state):
             for _ in range(self.M):
                 path = self.tree_search()

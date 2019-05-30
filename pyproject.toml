@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "hex"
+name = "deep_mcts"
 version = "0.1.0"
 description = ""
 authors = ["Your Name <you@example.com>"]

@@ -1,15 +1,16 @@
 from __future__ import annotations
+
 import random
 from typing import List, Tuple, Dict
 
+import numpy as np
 import torch
-import torch.optim
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
+import torch.optim
 
 from anet import ANET, cross_entropy, DEVICE
-from hex import HexAction, HexState, HexStateManager
+from hex.game import HexAction, HexState, HexManager
 
 
 class FullyConnectedHexNet(nn.Module):
@@ -28,16 +29,16 @@ class FullyConnectedHexNet(nn.Module):
         return x
 
 
-class FullyConnectedHexANET(ANET):
+class FullyConnectedHexANET(ANET[HexState, HexAction]):
     grid_size: int
-    state_manager: HexStateManager
+    state_manager: HexManager
 
     def __init__(self, grid_size: int):
         self.net = FullyConnectedHexNet(grid_size)
         self.grid_size = grid_size
         self.policy_criterion = cross_entropy
         self.optimizer = torch.optim.SGD(self.net.parameters(), lr=0.1, momentum=0.9)
-        self.state_manager = HexStateManager(grid_size)
+        self.state_manager = HexManager(grid_size)
 
     def mask_illegal_moves(self, states: torch.Tensor, output: torch.Tensor):
         legal_moves = (
@@ -87,9 +88,9 @@ class FullyConnectedHexANET(ANET):
         return tensor
 
     def states_to_tensor(self, states: List[HexState]):
-        players = np.array([state.player for state in states]).reshape(len(states), -1)
+        players = np.array([state.player for state in states]).reshape((len(states), -1))
         old_states = states
-        states = np.stack([state.grid for state in states]).reshape(len(states), -1)
+        states = np.stack([state.grid for state in states]).reshape((len(states), -1))
         for i in range(len(old_states)):
             assert np.all(states[i, :] == np.array(old_states[i].grid).flatten())
         first_player = states == 0

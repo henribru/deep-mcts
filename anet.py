@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import random
 from abc import ABC, abstractmethod
-from typing import Callable, Dict, List, Tuple, TypeVar, Sequence
+from typing import Callable, Dict, List, Tuple, TypeVar, Sequence, Generic
 
 import numpy as np
 import torch
@@ -14,9 +16,9 @@ DEVICE = torch.device("cpu")
 # DEVICE = torch.device("cuda")
 
 
-def cross_entropy(pred, soft_targets, reduction='mean'):
-    pred = pred.reshape(pred.shape[0], -1)
-    soft_targets = soft_targets.reshape(soft_targets.shape[0], -1)
+def cross_entropy(pred: torch.Tensor, soft_targets: torch.Tensor, reduction: string = 'mean') -> torch.Tensor:
+    pred = pred.reshape((pred.shape[0], -1))
+    soft_targets = soft_targets.reshape((soft_targets.shape[0], -1))
     result = torch.sum(-soft_targets * F.log_softmax(pred, dim=1), dim=1)
     assert result.shape == (pred.shape[0],)
     if reduction == 'mean':
@@ -32,7 +34,7 @@ S = TypeVar("S", bound=State)
 A = TypeVar("A", bound=Action)
 
 
-class ANET(ABC):
+class ANET(ABC, Generic[S, A]):
     net: nn.Module
     policy_criterion: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
     value_criterion: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
@@ -55,7 +57,7 @@ class ANET(ABC):
         return value.item(), probabilities.cpu().detach().numpy()
 
     @abstractmethod
-    def mask_illegal_moves(self, states: torch.Tensor, output: torch.Tensor):
+    def mask_illegal_moves(self, states: torch.Tensor, output: torch.Tensor) -> torch.Tensor:
         ...
 
     @abstractmethod
@@ -63,7 +65,7 @@ class ANET(ABC):
         ...
 
     @abstractmethod
-    def greedy_policy(self, state: S, epsilon=0) -> A:
+    def greedy_policy(self, state: S, epsilon: float = 0) -> A:
         ...
 
     @abstractmethod
@@ -74,7 +76,7 @@ class ANET(ABC):
         self.optimizer.zero_grad()
         examples = random.sample(replay_buffer, min(512, len(replay_buffer)))
         states, probability_targets, value_targets = zip(*examples)
-        value_targets = torch.tensor(value_targets, dtype=torch.float32, device=DEVICE).reshape(-1, 1)
+        value_targets = torch.tensor(value_targets, dtype=torch.float32, device=DEVICE).reshape((-1, 1))
         assert value_targets.shape[0] == len(examples)
         probability_targets = self.distributions_to_tensor(probability_targets)
         assert probability_targets.shape[0] == len(examples)
@@ -85,7 +87,7 @@ class ANET(ABC):
         assert probabilities.shape[0] == states.shape[0]
         assert values.shape == (states.shape[0], 1)
         # shape = output.shape
-        # output = F.softmax(output.reshape(shape[0], -1), dim=1).reshape(shape)
+        # output = F.softmax(output.reshape((shape[0], -1)), dim=1).reshape(shape)
         # assert torch.allclose(
         #     torch.sum(output, dim=tuple(range(1, output.dim()))), torch.Tensor([1.0])
         # )
@@ -125,7 +127,7 @@ class ANET(ABC):
         ...
 
     @classmethod
-    def from_path(cls, path, *args, **kwargs):
+    def from_path(cls, path, *args, **kwargs) -> ANET:
         anet = cls(*args, **kwargs)
         anet.net.load_state_dict(torch.load(path))
         return anet

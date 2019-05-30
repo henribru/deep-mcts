@@ -1,19 +1,23 @@
+from __future__ import annotations
+
+import functools
 from collections import deque
+from typing import Iterable, Tuple, Dict
 
 from anet import ANET
-from convolutional_hex import ConvolutionalHexANET
-from mcts import MCTS, StateManager
+from game import State, Action
+from hex.convolutional import ConvolutionalHexANET
+from mcts import MCTS, GameManager
 from topp import topp
-import functools
 
 
 def train(
     anet: ANET,
-    state_manager: StateManager,
+    state_manager: GameManager,
     num_actual_games: int,
     num_search_games: int,
     save_interval: int,
-):
+) -> Iterable[Tuple[State, State, Action, Dict[Action, float]]]:
     replay_buffer = deque([], 100000)
     random_anet = ConvolutionalHexANET(grid_size=4)
     anet.save(f"anet-0.pth")

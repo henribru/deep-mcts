@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import random
 from dataclasses import dataclass
 from typing import Dict, Tuple, List
 
-from mcts import State, Action, StateManager, MCTS
+from mcts import State, Action, GameManager, MCTS
 
 
 @dataclass(frozen=True)
@@ -15,7 +17,7 @@ class HexAction(Action):
     coordinate: Tuple[int, int]
 
 
-class HexStateManager(StateManager):
+class HexManager(GameManager[HexState, HexAction]):
     grid_size: int
 
     def __init__(self, grid_size: int):
@@ -111,8 +113,11 @@ class HexStateManager(StateManager):
 
 
 def hex_simulator(grid_size: int, M: int):
-    hex = HexStateManager(grid_size)
-    mcts = MCTS(hex, M, lambda state: random.choice(hex.legal_actions(state)))
+    def state_evaluator(state: HexState) -> Tuple[float, Dict[HexAction, float]]:
+        legal_actions = hex.legal_actions(state)
+        return 0, {action: 1 / len(legal_actions) for action in hex.legal_actions(state)}
+    hex = HexManager(grid_size)
+    mcts = MCTS(hex, M, lambda state: random.choice(hex.legal_actions(state)), state_evaluator)
     for state, next_state, action, visit_distribution in mcts.run():
         print(action.coordinate)
         print_hex_grid(state.grid)

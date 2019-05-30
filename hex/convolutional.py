@@ -1,15 +1,16 @@
 from __future__ import annotations
+
 import random
 from typing import List, Tuple, Dict
 
+import numpy as np
 import torch
-import torch.optim
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
+import torch.optim
 
 from anet import ANET, cross_entropy, DEVICE
-from hex import HexAction, HexState, HexStateManager
+from hex.game import HexAction, HexState, HexManager
 
 
 class ResidualBlock(nn.Module):
@@ -74,7 +75,7 @@ class ValueHead(nn.Module):
     def forward(self, x):
         x = self.conv1(x)
         x = F.relu(x)
-        x = self.fc1(x.reshape(x.shape[0], -1))
+        x = self.fc1(x.reshape((x.shape[0], -1)))
         x = F.relu(x)
         x = self.fc2(x)
         return x
@@ -111,9 +112,9 @@ class ConvolutionalHexNet(nn.Module):
         return res
 
 
-class ConvolutionalHexANET(ANET):
+class ConvolutionalHexANET(ANET[HexState, HexAction]):
     grid_size: int
-    state_manager: HexStateManager
+    state_manager: HexManager
 
     def __init__(self, grid_size: int):
         self.net = ConvolutionalHexNet(3, grid_size).to(DEVICE)
@@ -121,7 +122,7 @@ class ConvolutionalHexANET(ANET):
         self.policy_criterion = cross_entropy
         self.value_criterion = nn.MSELoss().to(DEVICE)
         self.optimizer = torch.optim.SGD(self.net.parameters(), lr=0.1, momentum=0.9)
-        self.state_manager = HexStateManager(grid_size)
+        self.state_manager = HexManager(grid_size)
 
     def mask_illegal_moves(self, states: torch.Tensor, output: torch.Tensor) -> torch.Tensor:
         legal_moves = (
@@ -182,8 +183,8 @@ class ConvolutionalHexANET(ANET):
         # should always be connecting north-south. This means we need to flip
         # the board for player 0.
         grids = np.stack([state.grid if state.player == 1 else np.array(state.grid).T for state in states], axis=0)
-        current_player = grids == np.array([state.player for state in states]).reshape(-1, 1, 1)
-        other_player = grids == np.array([0 if state.player == 1 else 1 for state in states]).reshape(-1, 1, 1)
+        current_player = grids == np.array([state.player for state in states]).reshape((-1, 1, 1))
+        other_player = grids == np.array([0 if state.player == 1 else 1 for state in states]).reshape((-1, 1, 1))
         #  assert np.all((first_player.sum(axis=1) - second_player.sum(axis=1)) <= 1)
         states = np.stack((current_player, other_player, players), axis=1)
         tensor = torch.as_tensor(states, device=DEVICE)
