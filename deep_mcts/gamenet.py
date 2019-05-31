@@ -45,6 +45,8 @@ class GameNet(ABC, Generic[S, A]):
         value, probabilities = self.net.forward(states.float())
         shape = probabilities.shape
         assert probabilities.shape == shape
+        probabilities = F.softmax(probabilities.reshape((1, -1)), dim=1).reshape(shape)
+        assert probabilities.shape == shape
         probabilities = self.mask_illegal_moves([state], probabilities)
         assert probabilities.shape == shape
         probabilities = probabilities / torch.sum(
