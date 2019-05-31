@@ -45,7 +45,7 @@ class GameNet(ABC, Generic[S, A]):
         value, probabilities = self.net.forward(states.float())
         shape = probabilities.shape
         assert probabilities.shape == shape
-        probabilities = self.mask_illegal_moves(states, probabilities)
+        probabilities = self.mask_illegal_moves([state], probabilities)
         assert probabilities.shape == shape
         probabilities = probabilities / torch.sum(
             probabilities, dim=tuple(range(1, probabilities.dim())), keepdim=True
@@ -57,7 +57,7 @@ class GameNet(ABC, Generic[S, A]):
         return value.item(), probabilities.cpu().detach().numpy()
 
     @abstractmethod
-    def mask_illegal_moves(self, states: torch.Tensor, output: torch.Tensor) -> torch.Tensor:
+    def mask_illegal_moves(self, states: List[S], output: torch.Tensor) -> torch.Tensor:
         ...
 
     @abstractmethod
@@ -77,7 +77,7 @@ class GameNet(ABC, Generic[S, A]):
         states, probability_targets, value_targets = zip(*examples)
         value_targets = torch.tensor(value_targets, dtype=torch.float32, device=DEVICE).reshape((-1, 1))
         assert value_targets.shape[0] == len(examples)
-        probability_targets = self.distributions_to_tensor(probability_targets)
+        probability_targets = self.distributions_to_tensor(states, probability_targets)
         assert probability_targets.shape[0] == len(examples)
         states = self.states_to_tensor(states)
         assert states.shape[0] == len(examples)
@@ -121,7 +121,7 @@ class GameNet(ABC, Generic[S, A]):
 
     @abstractmethod
     def distributions_to_tensor(
-        self, distributions: List[Dict[A, float]]
+        self, states: List[S], distributions: List[Dict[A, float]]
     ) -> torch.Tensor:
         ...
 
