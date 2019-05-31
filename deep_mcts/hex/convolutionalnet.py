@@ -13,17 +13,30 @@ from deep_mcts.gamenet import GameNet, cross_entropy, DEVICE
 from deep_mcts.hex.game import HexAction, HexState, HexManager
 
 
+class ConvolutionalBlock(nn.Module):
+    def __init__(self, in_channels: int, out_channels: int, kernel_size: int, padding: int):
+        super().__init__()
+        self.conv1 = nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, padding=padding)
+        self.bn1 = nn.BatchNorm2d(out_channels)
+
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = F.relu(x)
+        return x
+
+
 class ResidualBlock(nn.Module):
-    def __init__(self, in_channels: int, out_channels: int, kernel_size: int):
+    def __init__(self, in_channels: int, out_channels: int, kernel_size: int, padding: int):
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.conv1 = nn.Conv2d(
-            in_channels, out_channels, kernel_size, padding=kernel_size // 2
+            in_channels, out_channels, kernel_size, padding=padding
         )
         self.bn1 = nn.BatchNorm2d(out_channels)
         self.conv2 = nn.Conv2d(
-            out_channels, out_channels, kernel_size, padding=kernel_size // 2
+            out_channels, out_channels, kernel_size, padding=padding
         )
         self.bn2 = nn.BatchNorm2d(out_channels)
         self.projection = nn.Conv2d(in_channels, out_channels, kernel_size=1)
@@ -55,26 +68,24 @@ class ResidualBlock(nn.Module):
 class PolicyHead(nn.Module):
     def __init__(self, in_channels: int):
         super().__init__()
-        self.conv1 = nn.Conv2d(in_channels=in_channels, out_channels=in_channels, kernel_size=3, padding=1)
+        self.conv1 = ConvolutionalBlock(in_channels=in_channels, out_channels=in_channels, kernel_size=3, padding=1)
         self.conv2 = nn.Conv2d(in_channels=in_channels, out_channels=1, kernel_size=3, padding=1)
 
     def forward(self, x):
         x = self.conv1(x)
-        x = F.relu(x)
         x = self.conv2(x)
         return x
 
 
 class ValueHead(nn.Module):
-    def __init__(self, grid_size: int, in_channels: int):
+    def __init__(self, grid_size: int, in_channels: int, hidden_units: int):
         super().__init__()
-        self.conv1 = nn.Conv2d(in_channels=in_channels, out_channels=1, kernel_size=3, padding=1)
-        self.fc1 = nn.Linear(in_features=grid_size ** 2, out_features=64)
-        self.fc2 = nn.Linear(in_features=64, out_features=1)
+        self.conv1 = ConvolutionalBlock(in_channels=in_channels, out_channels=1, kernel_size=1, padding=0)
+        self.fc1 = nn.Linear(in_features=grid_size ** 2, out_features=hidden_units)
+        self.fc2 = nn.Linear(in_features=hidden_units, out_features=1)
 
     def forward(self, x):
         x = self.conv1(x)
-        x = F.relu(x)
         x = self.fc1(x.reshape((x.shape[0], -1)))
         x = F.relu(x)
         x = self.fc2(x)
@@ -84,21 +95,18 @@ class ValueHead(nn.Module):
 class ConvolutionalHexModule(nn.Module):
     def __init__(self, num_residual: int, grid_size: int, channels: int):
         super().__init__()
-        self.conv1 = nn.Conv2d(in_channels=3, out_channels=channels, kernel_size=3, padding=1)
-        self.bn1 = nn.BatchNorm2d(channels)
+        self.conv1 = ConvolutionalBlock(in_channels=3, out_channels=channels, kernel_size=3, padding=1)
         self.residual_blocks = [
-            ResidualBlock(in_channels=channels, out_channels=channels, kernel_size=3)
+            ResidualBlock(in_channels=channels, out_channels=channels, kernel_size=3, padding=1)
             for _ in range(num_residual)
         ]
         self.policy_head = PolicyHead(channels)
-        self.value_head = ValueHead(grid_size, channels)
+        self.value_head = ValueHead(grid_size, channels, hidden_units=64)
 
     def forward(self, x):
         input = x
         assert input.shape == (input.shape[0], 3, input.shape[2], input.shape[3])
         x = self.conv1(x)
-        x = self.bn1(x)
-        x = F.relu(x)
         for residual_block in self.residual_blocks:
             x = residual_block(x)
         value, probabilities = self.value_head(x), self.policy_head(x)
