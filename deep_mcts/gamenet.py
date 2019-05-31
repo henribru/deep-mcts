@@ -16,7 +16,7 @@ DEVICE = torch.device("cpu")
 # DEVICE = torch.device("cuda")
 
 
-def cross_entropy(pred: torch.Tensor, soft_targets: torch.Tensor, reduction: string = 'mean') -> torch.Tensor:
+def cross_entropy(pred: torch.Tensor, soft_targets: torch.Tensor, reduction: str = 'mean') -> torch.Tensor:
     pred = pred.reshape((pred.shape[0], -1))
     soft_targets = soft_targets.reshape((soft_targets.shape[0], -1))
     result = torch.sum(-soft_targets * F.log_softmax(pred, dim=1), dim=1)
