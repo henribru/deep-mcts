@@ -39,18 +39,20 @@ class MCTS(Generic[S, A]):
     state_manager: GameManager[S, A]
     root: Node[S, A]
     M: int
-    behavior_policy: Callable[[S], A]
+    rollout_policy: Callable[[S], A]
     state_evaluator: Callable[[S], Tuple[float, Dict[A, float]]]
+    rollouts: bool
 
     def __init__(
-            self, state_manager: GameManager[S, A], M: int, behavior_policy: Callable[[S], A],
-            state_evaluator: Callable[[S], Tuple[float, Dict[A, float]]]):
+            self, state_manager: GameManager[S, A], M: int, rollout_policy: Callable[[S], A],
+            state_evaluator: Callable[[S], Tuple[float, Dict[A, float]]], rollouts: bool):
         self.state_manager = state_manager
         self.M = M
-        self.behavior_policy = behavior_policy
+        self.rollout_policy = rollout_policy
         self.state_evaluator = state_evaluator
         initial_state = self.state_manager.initial_game_state()
         self.root = Node(initial_state)
+        self.rollouts = rollouts
 
     def tree_search(self) -> List[Node[S, A]]:
         path = [self.root]
@@ -71,14 +73,15 @@ class MCTS(Generic[S, A]):
         for action, node in node.children.items():
             node.P = probabilities[action]
 
-    def evaluate_leaf(self, leaf_node: Node[S, A], rollout=False) -> float:
-        if not rollout:
-            return leaf_node.E
-        state = leaf_node.state
-        while not self.state_manager.is_final_state(state):
-            action = self.behavior_policy(state)
-            state = self.state_manager.generate_child_state(state, action)
-        return self.state_manager.evaluate_final_state(state)
+    def evaluate_leaf(self, leaf_node: Node[S, A]) -> float:
+        value = leaf_node.E
+        if self.rollouts:
+            state = leaf_node.state
+            while not self.state_manager.is_final_state(state):
+                action = self.rollout_policy(state)
+                state = self.state_manager.generate_child_state(state, action)
+            value += self.state_manager.evaluate_final_state(state)
+        return value
 
     def backpropagate(self, path: List[Node[S, A]], evaluation: float) -> None:
         for node in path:

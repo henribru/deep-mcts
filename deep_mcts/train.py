@@ -24,7 +24,7 @@ def train(
     game_net.save(f"anet-0.pth")
     for i in range(num_actual_games):
         print(i + 1)
-        mcts = MCTS(state_manager, num_search_games, functools.partial(game_net.greedy_policy, epsilon=0.10), game_net.evaluate_state)
+        mcts = MCTS(state_manager, num_search_games, functools.partial(game_net.greedy_policy, epsilon=0.10), game_net.evaluate_state, rollouts=False)
         examples = []
         for state, next_state, action, visit_distribution in mcts.run():
             examples.append((state, visit_distribution))
