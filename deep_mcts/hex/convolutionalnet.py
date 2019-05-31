@@ -82,16 +82,16 @@ class ValueHead(nn.Module):
 
 
 class ConvolutionalHexModule(nn.Module):
-    def __init__(self, num_residual: int, grid_size: int):
+    def __init__(self, num_residual: int, grid_size: int, channels: int):
         super().__init__()
-        self.conv1 = nn.Conv2d(in_channels=3, out_channels=16, kernel_size=3, padding=1)
-        self.bn1 = nn.BatchNorm2d(16)
+        self.conv1 = nn.Conv2d(in_channels=3, out_channels=channels, kernel_size=3, padding=1)
+        self.bn1 = nn.BatchNorm2d(channels)
         self.residual_blocks = [
-            ResidualBlock(in_channels=16, out_channels=16, kernel_size=3)
+            ResidualBlock(in_channels=channels, out_channels=channels, kernel_size=3)
             for _ in range(num_residual)
         ]
-        self.policy_head = PolicyHead(16)
-        self.value_head = ValueHead(grid_size, 16)
+        self.policy_head = PolicyHead(channels)
+        self.value_head = ValueHead(grid_size, channels)
 
     def forward(self, x):
         input = x
@@ -117,7 +117,7 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
     state_manager: HexManager
 
     def __init__(self, grid_size: int):
-        self.net = ConvolutionalHexModule(3, grid_size).to(DEVICE)
+        self.net = ConvolutionalHexModule(num_residual=3, grid_size=grid_size, channels=16).to(DEVICE)
         self.grid_size = grid_size
         self.policy_criterion = cross_entropy
         self.value_criterion = nn.MSELoss().to(DEVICE)
