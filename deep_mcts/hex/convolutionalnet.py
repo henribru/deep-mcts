@@ -114,7 +114,7 @@ class ConvolutionalHexModule(nn.Module):
 
 class ConvolutionalHexNet(GameNet[HexState, HexAction]):
     grid_size: int
-    state_manager: HexManager
+    hex_manager: HexManager
 
     def __init__(self, grid_size: int):
         self.net = ConvolutionalHexModule(num_residual=3, grid_size=grid_size, channels=16).to(DEVICE)
@@ -122,7 +122,7 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
         self.policy_criterion = cross_entropy
         self.value_criterion = nn.MSELoss().to(DEVICE)
         self.optimizer = torch.optim.SGD(self.net.parameters(), lr=0.1, momentum=0.9)
-        self.state_manager = HexManager(grid_size)
+        self.hex_manager = HexManager(grid_size)
 
     def mask_illegal_moves(self, states: List[HexState], output: torch.Tensor) -> torch.Tensor:
         states = np.stack([state.grid if state.player == 1 else np.transpose(state.grid) for state in states], axis=0)
@@ -150,13 +150,15 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
             action_probabilities.size, p=action_probabilities.flatten()
         )
         y, x = np.unravel_index(action, action_probabilities.shape)
-        return HexAction((x, y))
+        action = HexAction((x, y))
+        assert action in self.hex_manager.legal_actions(state)
+        return action
 
     def greedy_policy(self, state: HexState, epsilon=0) -> HexAction:
         if epsilon > 0:
             p = random.random()
             if p < epsilon:
-                return random.choice(self.state_manager.legal_actions(state))
+                return random.choice(self.hex_manager.legal_actions(state))
         _, action_probabilities = self.forward(state)
         action_probabilities = action_probabilities[
             0, 0, :, :
@@ -165,7 +167,9 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
         y, x = np.unravel_index(
             np.argmax(action_probabilities), action_probabilities.shape
         )
-        return HexAction((x, y))
+        action = HexAction((x, y))
+        assert action in self.hex_manager.legal_actions(state)
+        return action
 
     def evaluate_state(self, state: HexState) -> Tuple[float, Dict[HexAction, float]]:
         value, probabilities = self.forward(state)
@@ -173,6 +177,7 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
         for y in range(self.grid_size):
             for x in range(self.grid_size):
                 actions[HexAction((x, y))] = probabilities[0, 0, y, x]
+        assert set(actions.keys()) == set(self.hex_manager.legal_actions())
         return value, actions
 
     def state_to_tensor(self, state: HexState) -> torch.Tensor:

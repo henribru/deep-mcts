@@ -29,39 +29,41 @@ class HexManager(GameManager[HexState, HexAction]):
             0, [[-1 for _ in range(self.grid_size)] for _ in range(self.grid_size)]
         )
 
-    def generate_child_states(self, parent: HexState) -> Dict[HexAction, HexState]:
+    def generate_child_states(self, state: HexState) -> Dict[HexAction, HexState]:
         child_states = {}
-        for x in range(self.grid_size):
-            for y in range(self.grid_size):
-                if parent.grid[y][x] == -1:
+        for y in range(self.grid_size):
+            for x in range(self.grid_size):
+                if state.grid[y][x] == -1:
                     child_states[HexAction((x, y))] = HexState(
-                        (parent.player + 1) % 2,
+                        (state.player + 1) % 2,
                         [
                             [
-                                parent.player if (i, j) == (x, y) else parent.grid[j][i]
+                                state.player if (i, j) == (x, y) else state.grid[j][i]
                                 for i in range(self.grid_size)
-                            ] if j == y else parent.grid[j]
+                            ] if j == y else state.grid[j]
                             for j in range(self.grid_size)
                         ],
                     )
+        assert set(child_states.keys()) == set(self.legal_actions(state))
         return child_states
 
-    def generate_child_state(self, parent: HexState, action: HexAction) -> HexState:
+    def generate_child_state(self, state: HexState, action: HexAction) -> HexState:
+        assert action in self.legal_actions(state)
         return HexState(
-            (parent.player + 1) % 2,
+            (state.player + 1) % 2,
             [
                 [
-                    parent.player if (i, j) == action.coordinate else parent.grid[j][i]
+                    state.player if (i, j) == action.coordinate else state.grid[j][i]
                     for i in range(self.grid_size)
-                ] if j == action.coordinate[1] else parent.grid[j]
+                ] if j == action.coordinate[1] else state.grid[j]
                 for j in range(self.grid_size)
             ],
         )
 
     def legal_actions(self, state: HexState) -> List[HexAction]:
         actions = []
-        for x in range(self.grid_size):
-            for y in range(self.grid_size):
+        for y in range(self.grid_size):
+            for x in range(self.grid_size):
                 if state.grid[y][x] == -1:
                     actions.append(HexAction((x, y)))
         return actions

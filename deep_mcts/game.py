@@ -25,11 +25,11 @@ class GameManager(ABC, Generic[S, A]):
         ...
 
     @abstractmethod
-    def generate_child_states(self, parent: S) -> Dict[A, S]:
+    def generate_child_states(self, state: S) -> Dict[A, S]:
         ...
 
     @abstractmethod
-    def generate_child_state(self, parent: S, action: A) -> S:
+    def generate_child_state(self, state: S, action: A) -> S:
         ...
 
     @abstractmethod
