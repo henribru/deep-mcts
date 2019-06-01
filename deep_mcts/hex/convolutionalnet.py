@@ -9,7 +9,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim
 
-from deep_mcts.gamenet import GameNet, cross_entropy, DEVICE
+from deep_mcts.gamenet import GameNet, DEVICE
 from deep_mcts.hex.game import HexAction, HexState, HexManager
 
 
@@ -147,14 +147,13 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
     hex_manager: HexManager
 
     def __init__(self, grid_size: int):
+        super().__init__()
         self.net = ConvolutionalHexModule(
             num_residual=3, grid_size=grid_size, channels=16
         ).to(DEVICE)
         self.grid_size = grid_size
-        self.policy_criterion = cross_entropy
-        self.value_criterion = nn.MSELoss().to(DEVICE)
-        self.optimizer = torch.optim.SGD(self.net.parameters(), lr=0.1, momentum=0.9)
         self.hex_manager = HexManager(grid_size)
+        self.optimizer = torch.optim.SGD(self.net.parameters(), lr=0.1, momentum=0.9)
 
     def mask_illegal_moves(
         self, states: List[HexState], output: torch.Tensor

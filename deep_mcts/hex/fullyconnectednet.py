@@ -35,11 +35,11 @@ from __future__ import annotations
 #     state_manager: HexManager
 #
 #     def __init__(self, grid_size: int):
+#         super().__init__()
 #         self.net = FullyConnectedHexModule(grid_size)
 #         self.grid_size = grid_size
-#         self.policy_criterion = cross_entropy
-#         self.optimizer = torch.optim.SGD(self.net.parameters(), lr=0.1, momentum=0.9)
 #         self.state_manager = HexManager(grid_size)
+#         self.optimizer = torch.optim.SGD(self.net.parameters(), lr=0.1, momentum=0.9)
 #
 #     def mask_illegal_moves(self, states: torch.Tensor, output: torch.Tensor):
 #         legal_moves = (

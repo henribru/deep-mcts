@@ -42,6 +42,10 @@ class GameNet(ABC, Generic[S, A]):
     value_criterion: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
     optimizer: torch.optim.Optimizer
 
+    def __init__(self):
+        self.policy_criterion = cross_entropy
+        self.value_criterion = nn.MSELoss().to(DEVICE)
+
     def forward(self, state: S) -> Tuple[float, np.ndarray]:
         states = self.state_to_tensor(state)
         value, probabilities = self.net.forward(states.float())
