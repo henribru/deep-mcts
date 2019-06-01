@@ -43,8 +43,12 @@ class MCTS(Generic[S, A]):
     state_evaluator: Callable[[S], Tuple[float, Dict[A, float]]]
 
     def __init__(
-            self, state_manager: GameManager[S, A], M: int, rollout_policy: Optional[Callable[[S], A]],
-            state_evaluator: Callable[[S], Tuple[float, Dict[A, float]]]):
+        self,
+        state_manager: GameManager[S, A],
+        M: int,
+        rollout_policy: Optional[Callable[[S], A]],
+        state_evaluator: Callable[[S], Tuple[float, Dict[A, float]]],
+    ):
         self.state_manager = state_manager
         self.M = M
         self.rollout_policy = rollout_policy
@@ -65,7 +69,9 @@ class MCTS(Generic[S, A]):
 
     def expand_node(self, node: Node[S, A]) -> None:
         child_states = self.state_manager.generate_child_states(node.state)
-        node.children = {action: Node(child_state) for action, child_state in child_states.items()}
+        node.children = {
+            action: Node(child_state) for action, child_state in child_states.items()
+        }
         value, probabilities = self.state_evaluator(node.state)
         node.E = value
         for action, node in node.children.items():

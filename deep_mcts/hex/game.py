@@ -40,7 +40,9 @@ class HexManager(GameManager[HexState, HexAction]):
                             [
                                 state.player if (i, j) == (x, y) else state.grid[j][i]
                                 for i in range(self.grid_size)
-                            ] if j == y else state.grid[j]
+                            ]
+                            if j == y
+                            else state.grid[j]
                             for j in range(self.grid_size)
                         ],
                     )
@@ -55,7 +57,9 @@ class HexManager(GameManager[HexState, HexAction]):
                 [
                     state.player if (i, j) == action.coordinate else state.grid[j][i]
                     for i in range(self.grid_size)
-                ] if j == action.coordinate[1] else state.grid[j]
+                ]
+                if j == action.coordinate[1]
+                else state.grid[j]
                 for j in range(self.grid_size)
             ],
         )
@@ -117,9 +121,15 @@ class HexManager(GameManager[HexState, HexAction]):
 def hex_simulator(grid_size: int, M: int):
     def state_evaluator(state: HexState) -> Tuple[float, Dict[HexAction, float]]:
         legal_actions = hex.legal_actions(state)
-        return 0, {action: 1 / len(legal_actions) for action in hex.legal_actions(state)}
+        return (
+            0,
+            {action: 1 / len(legal_actions) for action in hex.legal_actions(state)},
+        )
+
     hex = HexManager(grid_size)
-    mcts = MCTS(hex, M, lambda state: random.choice(hex.legal_actions(state)), state_evaluator)
+    mcts = MCTS(
+        hex, M, lambda state: random.choice(hex.legal_actions(state)), state_evaluator
+    )
     for state, next_state, action, visit_distribution in mcts.run():
         print(action.coordinate)
         print_hex_grid(state.grid)

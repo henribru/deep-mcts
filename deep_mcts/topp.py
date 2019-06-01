@@ -10,7 +10,9 @@ S = TypeVar("S", bound=State)
 A = TypeVar("A", bound=Action)
 
 
-def topp(agents: List[Callable[[S], A]], num_games: int, state_manager: GameManager[S, A]) -> List[List[float]]:
+def topp(
+    agents: List[Callable[[S], A]], num_games: int, state_manager: GameManager[S, A]
+) -> List[List[float]]:
     results = [[0] * len(agents) for _ in range(len(agents))]
     for (i, agent_1), (j, agent_2) in itertools.combinations(enumerate(agents), 2):
         for k in range(num_games):
@@ -30,7 +32,8 @@ def topp(agents: List[Callable[[S], A]], num_games: int, state_manager: GameMana
 
 
 def compare_agents(
-    players: Tuple[List[Callable[[S], A]], List[Callable[[S], A]]], state_manager: GameManager[S, A]
+    players: Tuple[List[Callable[[S], A]], List[Callable[[S], A]]],
+    state_manager: GameManager[S, A],
 ) -> float:
     state = state_manager.initial_game_state()
     player = 0

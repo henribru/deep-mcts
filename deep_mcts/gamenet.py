@@ -16,15 +16,17 @@ DEVICE = torch.device("cpu")
 # DEVICE = torch.device("cuda")
 
 
-def cross_entropy(pred: torch.Tensor, soft_targets: torch.Tensor, reduction: str = 'mean') -> torch.Tensor:
+def cross_entropy(
+    pred: torch.Tensor, soft_targets: torch.Tensor, reduction: str = "mean"
+) -> torch.Tensor:
     pred = pred.reshape((pred.shape[0], -1))
     soft_targets = soft_targets.reshape((soft_targets.shape[0], -1))
     result = torch.sum(-soft_targets * F.log_softmax(pred, dim=1), dim=1)
     assert result.shape == (pred.shape[0],)
-    if reduction == 'mean':
+    if reduction == "mean":
         result = torch.mean(result)
         assert result.shape == ()
-    elif reduction == 'sum':
+    elif reduction == "sum":
         result = torch.sum(result)
         assert result.shape == ()
     return result
@@ -54,7 +56,8 @@ class GameNet(ABC, Generic[S, A]):
         )
         assert probabilities.shape == shape
         assert torch.allclose(
-            torch.sum(probabilities, dim=tuple(range(1, probabilities.dim()))), torch.tensor([1.0])
+            torch.sum(probabilities, dim=tuple(range(1, probabilities.dim()))),
+            torch.tensor([1.0]),
         )
         # The output value is from the perspective of the current player,
         # but MCTS expects it to be independent of the player
@@ -81,7 +84,9 @@ class GameNet(ABC, Generic[S, A]):
     def train(self, examples: Sequence[Tuple[S, Dict[A, float], float]]) -> None:
         self.optimizer.zero_grad()
         states, probability_targets, value_targets = zip(*examples)
-        value_targets = torch.tensor(value_targets, dtype=torch.float32, device=DEVICE).reshape((-1, 1))
+        value_targets = torch.tensor(
+            value_targets, dtype=torch.float32, device=DEVICE
+        ).reshape((-1, 1))
         assert value_targets.shape[0] == len(examples)
         probability_targets = self.distributions_to_tensor(states, probability_targets)
         assert probability_targets.shape[0] == len(examples)
@@ -106,7 +111,9 @@ class GameNet(ABC, Generic[S, A]):
         #  assert torch.allclose(
         #      torch.sum(output, dim=tuple(range(1, output.dim()))), torch.Tensor([1.0])
         #  )
-        loss = self.policy_criterion(probabilities, probability_targets) + self.value_criterion(values, value_targets)
+        loss = self.policy_criterion(
+            probabilities, probability_targets
+        ) + self.value_criterion(values, value_targets)
         assert loss.shape == ()
         loss.backward()
         self.optimizer.step()

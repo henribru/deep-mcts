@@ -10,9 +10,7 @@ def hex_simulator(
 ) -> None:
     hex = HexManager(grid_size)
     anet = ConvolutionalHexNet(grid_size)
-    for _ in train.train(
-        anet, hex, num_actual_games, num_search_games, save_interval
-    ):
+    for _ in train.train(anet, hex, num_actual_games, num_search_games, save_interval):
         continue
 
 
