@@ -56,6 +56,10 @@ class GameNet(ABC, Generic[S, A]):
         assert torch.allclose(
             torch.sum(probabilities, dim=tuple(range(1, probabilities.dim()))), torch.tensor([1.0])
         )
+        # The output value is from the perspective of the current player,
+        # but MCTS expects it to be independent of the player
+        if state.player == 1:
+            value = -value
         return value.item(), probabilities.cpu().detach().numpy()
 
     @abstractmethod
