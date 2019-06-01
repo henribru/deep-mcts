@@ -45,6 +45,11 @@ class GameNet(ABC, Generic[S, A]):
     def forward(self, state: S) -> Tuple[float, np.ndarray]:
         states = self.state_to_tensor(state)
         value, probabilities = self.net.forward(states.float())
+        value = torch.tanh(value)
+        # The output value is from the perspective of the current player,
+        # but MCTS expects it to be independent of the player
+        if state.player == 1:
+            value = -value
         shape = probabilities.shape
         assert probabilities.shape == shape
         probabilities = F.softmax(probabilities.reshape((1, -1)), dim=1).reshape(shape)
@@ -59,10 +64,6 @@ class GameNet(ABC, Generic[S, A]):
             torch.sum(probabilities, dim=tuple(range(1, probabilities.dim()))),
             torch.tensor([1.0]),
         )
-        # The output value is from the perspective of the current player,
-        # but MCTS expects it to be independent of the player
-        if state.player == 1:
-            value = -value
         return value.item(), probabilities.cpu().detach().numpy()
 
     @abstractmethod
