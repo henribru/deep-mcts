@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import functools
 from collections import deque
-from typing import Iterable, Tuple, Dict
+from typing import Iterable, Tuple, Dict, Optional, TypeVar, Callable
 
 from deep_mcts.gamenet import GameNet
 from deep_mcts.game import State, Action
@@ -12,19 +12,23 @@ from deep_mcts.topp import topp
 import random
 
 
+S = TypeVar("S", bound=State)
+A = TypeVar("A", bound=Action)
+
 def train(
-    game_net: GameNet,
-    state_manager: GameManager,
+    game_net: GameNet[S, A],
+    state_manager: GameManager[S, A],
     num_actual_games: int,
     num_search_games: int,
     save_interval: int,
+    rollout_policy: Optional[Callable[[S], A]] = None,
 ) -> Iterable[Tuple[State, State, Action, Dict[Action, float]]]:
     replay_buffer = deque([], 100000)
     random_anet = ConvolutionalHexNet(grid_size=4)
     game_net.save(f"anet-0.pth")
     for i in range(num_actual_games):
         print(i + 1)
-        mcts = MCTS(state_manager, num_search_games, functools.partial(game_net.greedy_policy, epsilon=0.10), game_net.evaluate_state, rollouts=False)
+        mcts = MCTS(state_manager, num_search_games, rollout_policy, state_evaluator=game_net.evaluate_state)
         examples = []
         for state, next_state, action, visit_distribution in mcts.run():
             examples.append((state, visit_distribution))

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from math import sqrt
-from typing import Callable, Dict, List, Tuple, Iterable, TypeVar, Generic
+from typing import Callable, Dict, List, Tuple, Iterable, TypeVar, Generic, Optional
 
 from deep_mcts.game import GameManager, State, Action
 
@@ -41,18 +41,16 @@ class MCTS(Generic[S, A]):
     M: int
     rollout_policy: Callable[[S], A]
     state_evaluator: Callable[[S], Tuple[float, Dict[A, float]]]
-    rollouts: bool
 
     def __init__(
-            self, state_manager: GameManager[S, A], M: int, rollout_policy: Callable[[S], A],
-            state_evaluator: Callable[[S], Tuple[float, Dict[A, float]]], rollouts: bool):
+            self, state_manager: GameManager[S, A], M: int, rollout_policy: Optional[Callable[[S], A]],
+            state_evaluator: Callable[[S], Tuple[float, Dict[A, float]]]):
         self.state_manager = state_manager
         self.M = M
         self.rollout_policy = rollout_policy
         self.state_evaluator = state_evaluator
         initial_state = self.state_manager.initial_game_state()
         self.root = Node(initial_state)
-        self.rollouts = rollouts
 
     def tree_search(self) -> List[Node[S, A]]:
         path = [self.root]
@@ -75,7 +73,7 @@ class MCTS(Generic[S, A]):
 
     def evaluate_leaf(self, leaf_node: Node[S, A]) -> float:
         value = leaf_node.E
-        if self.rollouts:
+        if self.rollout_policy is not None:
             state = leaf_node.state
             while not self.state_manager.is_final_state(state):
                 action = self.rollout_policy(state)
