@@ -36,7 +36,7 @@ class Node(Generic[S, A]):
 
 
 class MCTS(Generic[S, A]):
-    state_manager: GameManager[S, A]
+    game_manager: GameManager[S, A]
     root: Node[S, A]
     M: int
     rollout_policy: Callable[[S], A]
@@ -44,16 +44,16 @@ class MCTS(Generic[S, A]):
 
     def __init__(
         self,
-        state_manager: GameManager[S, A],
+        game_manager: GameManager[S, A],
         M: int,
         rollout_policy: Optional[Callable[[S], A]],
         state_evaluator: Callable[[S], Tuple[float, Dict[A, float]]],
     ):
-        self.state_manager = state_manager
+        self.game_manager = game_manager
         self.M = M
         self.rollout_policy = rollout_policy
         self.state_evaluator = state_evaluator
-        initial_state = self.state_manager.initial_game_state()
+        initial_state = self.game_manager.initial_game_state()
         self.root = Node(initial_state)
 
     def tree_search(self) -> List[Node[S, A]]:
@@ -68,7 +68,7 @@ class MCTS(Generic[S, A]):
         return path
 
     def expand_node(self, node: Node[S, A]) -> None:
-        child_states = self.state_manager.generate_child_states(node.state)
+        child_states = self.game_manager.generate_child_states(node.state)
         node.children = {
             action: Node(child_state) for action, child_state in child_states.items()
         }
@@ -81,10 +81,10 @@ class MCTS(Generic[S, A]):
         value = leaf_node.E
         if self.rollout_policy is not None:
             state = leaf_node.state
-            while not self.state_manager.is_final_state(state):
+            while not self.game_manager.is_final_state(state):
                 action = self.rollout_policy(state)
-                state = self.state_manager.generate_child_state(state, action)
-            value += self.state_manager.evaluate_final_state(state)
+                state = self.game_manager.generate_child_state(state, action)
+            value += self.game_manager.evaluate_final_state(state)
         return value
 
     def backpropagate(self, path: List[Node[S, A]], evaluation: float) -> None:
@@ -93,11 +93,11 @@ class MCTS(Generic[S, A]):
             node.E += evaluation
 
     def run(self) -> Iterable[Tuple[S, S, A, Dict[A, float]]]:
-        while not self.state_manager.is_final_state(self.root.state):
+        while not self.game_manager.is_final_state(self.root.state):
             for _ in range(self.M):
                 path = self.tree_search()
                 leaf_node = path[-1]
-                if not self.state_manager.is_final_state(leaf_node.state):
+                if not self.game_manager.is_final_state(leaf_node.state):
                     self.expand_node(leaf_node)
                     path.append(next(iter(leaf_node.children.values())))
                 evaluation = self.evaluate_leaf(path[-1])

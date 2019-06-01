@@ -18,7 +18,7 @@ A = TypeVar("A", bound=Action)
 
 def train(
     game_net: GameNet[S, A],
-    state_manager: GameManager[S, A],
+    game_manager: GameManager[S, A],
     num_actual_games: int,
     num_search_games: int,
     save_interval: int,
@@ -30,7 +30,7 @@ def train(
     for i in range(num_actual_games):
         print(i + 1)
         mcts = MCTS(
-            state_manager,
+            game_manager,
             num_search_games,
             rollout_policy,
             state_evaluator=game_net.evaluate_state,
@@ -53,7 +53,7 @@ def train(
                 functools.partial(game_net.greedy_policy, epsilon=0.10),
             ],
             25,
-            state_manager,
+            game_manager,
         )
         print(results)
         if (i + 1) % save_interval == 0:
