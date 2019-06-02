@@ -129,7 +129,7 @@ def hex_simulator(grid_size: int, M: int) -> None:
         legal_actions = hex.legal_actions(state)
         return (
             0,
-            {action: 1 / len(legal_actions) for action in hex.legal_actions(state)},
+            {action: 1 / len(legal_actions) for action in legal_actions},
         )
 
     hex = HexManager(grid_size)
@@ -165,4 +165,4 @@ def print_hex_grid(grid: Sequence[Sequence[int]]) -> None:
 
 
 if __name__ == "__main__":
-    hex_simulator(4, 100)
+    hex_simulator(4, 1000)

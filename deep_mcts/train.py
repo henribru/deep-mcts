@@ -48,11 +48,11 @@ def train(
         for state, next_state, action, visit_distribution in mcts.run():
             examples.append((state, visit_distribution))
             yield state, next_state, action, visit_distribution
-        winner = state.player
+        outcome = game_manager.evaluate_final_state(next_state)
         for state, visit_distribution in examples:
             # We want the target value to be from the perspective of the current player in that state
             replay_buffer.append(
-                (state, visit_distribution, 1 if state.player == winner else -1)
+                (state, visit_distribution, outcome if state.player == 0 else -outcome)
             )  # TODO?
         examples = random.sample(replay_buffer, min(512, len(replay_buffer)))
         game_net.train(examples)
