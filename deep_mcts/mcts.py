@@ -69,7 +69,7 @@ class MCTS(Generic[S, A]):
         return path
 
     def expand_node(self, node: Node[S, A]) -> float:
-        assert (node.E, node.N) == (0, 0)
+        assert (node.E, node.N) == (0.0, 0)
         child_states = self.game_manager.generate_child_states(node.state)
         node.children = {
             action: Node(child_state) for action, child_state in child_states.items()
@@ -80,7 +80,7 @@ class MCTS(Generic[S, A]):
         return value
 
     def rollout(self, node: Node[S, A]) -> float:
-        assert (node.E, node.N) == (0, 0)
+        assert (node.E, node.N) == (0.0, 0)
         if self.rollout_policy is None:
             return 0
         state = node.state
@@ -95,15 +95,18 @@ class MCTS(Generic[S, A]):
             node.E += evaluation
             assert -1.0 <= node.Q <= 1.0
 
+    def evaluate_leaf(self, leaf_node: Node[S, A]) -> float:
+        if self.game_manager.is_final_state(leaf_node.state):
+            return self.game_manager.evaluate_final_state(leaf_node.state)
+        else:
+            return self.expand_node(leaf_node) + self.rollout(leaf_node)
+
     def run(self) -> Iterable[Tuple[S, S, A, Dict[A, float]]]:
         while not self.game_manager.is_final_state(self.root.state):
             for _ in range(self.M):
                 path = self.tree_search()
                 leaf_node = path[-1]
-                if self.game_manager.is_final_state(leaf_node.state):
-                    evaluation = self.game_manager.evaluate_final_state(leaf_node.state)
-                else:
-                    evaluation = self.expand_node(leaf_node) + self.rollout(leaf_node)
+                evaluation = self.evaluate_leaf(leaf_node)
                 self.backpropagate(path, evaluation)
                 if __debug__:
                     if self.game_manager.is_final_state(leaf_node.state):

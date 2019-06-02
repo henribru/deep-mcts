@@ -145,7 +145,7 @@ class GameNet(ABC, Generic[S, A]):
         ...
 
     @classmethod
-    def from_path(cls, path: str, *args, **kwargs) -> GameNet:
+    def from_path(cls, path: str, *args, **kwargs) -> GameNet[S, A]:
         anet = cls(*args, **kwargs)
         anet.net.load_state_dict(torch.load(path))
         return anet
