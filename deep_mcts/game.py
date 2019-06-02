@@ -41,5 +41,5 @@ class GameManager(ABC, Generic[S, A]):
         ...
 
     @abstractmethod
-    def evaluate_final_state(self, state: S) -> float:
+    def evaluate_final_state(self, state: S) -> int:
         ...

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import functools
+
 from deep_mcts import train
-from deep_mcts.hex.game import HexManager
 from deep_mcts.hex.convolutionalnet import ConvolutionalHexNet
+from deep_mcts.hex.game import HexManager
 
 
 def hex_simulator(
@@ -10,7 +12,15 @@ def hex_simulator(
 ) -> None:
     hex = HexManager(grid_size)
     anet = ConvolutionalHexNet(grid_size)
-    for _ in train.train(anet, hex, num_actual_games, num_search_games, save_interval):
+    random_anet = ConvolutionalHexNet(grid_size)
+    for _ in train.train(
+        anet,
+        hex,
+        num_actual_games,
+        num_search_games,
+        save_interval,
+        opponent=functools.partial(random_anet.greedy_policy, epsilon=0.05),
+    ):
         continue
 
 

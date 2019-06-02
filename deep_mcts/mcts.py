@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from typing import Callable, Dict, List, Tuple, Iterable, TypeVar, Generic, Optional, Mapping
+
 from math import sqrt
-from typing import Callable, Dict, List, Tuple, Iterable, TypeVar, Generic, Optional
 
 from deep_mcts.game import GameManager, State, Action
 
@@ -12,7 +13,7 @@ A = TypeVar("A", bound=Action)
 class Node(Generic[S, A]):
     state: S
     children: Dict[A, Node[S, A]]
-    E: int
+    E: float
     N: int
     P: float
 
@@ -39,15 +40,15 @@ class MCTS(Generic[S, A]):
     game_manager: GameManager[S, A]
     root: Node[S, A]
     M: int
-    rollout_policy: Callable[[S], A]
-    state_evaluator: Callable[[S], Tuple[float, Dict[A, float]]]
+    rollout_policy: Optional[Callable[[S], A]]
+    state_evaluator: Callable[[S], Tuple[float, Mapping[A, float]]]
 
     def __init__(
         self,
         game_manager: GameManager[S, A],
         M: int,
         rollout_policy: Optional[Callable[[S], A]],
-        state_evaluator: Callable[[S], Tuple[float, Dict[A, float]]],
+        state_evaluator: Callable[[S], Tuple[float, Mapping[A, float]]],
     ):
         self.game_manager = game_manager
         self.M = M
@@ -87,7 +88,7 @@ class MCTS(Generic[S, A]):
             value += self.game_manager.evaluate_final_state(state)
         return value
 
-    def backpropagate(self, path: List[Node[S, A]], evaluation: float) -> None:
+    def backpropagate(self, path: Iterable[Node[S, A]], evaluation: float) -> None:
         for node in path:
             node.N += 1
             node.E += evaluation

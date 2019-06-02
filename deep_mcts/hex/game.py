@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass
-from typing import Dict, Tuple, List
+from typing import Dict, Tuple, List, Sequence, Iterable, MutableSet, Optional
 
 from deep_mcts.mcts import State, Action, GameManager, MCTS
 
@@ -75,7 +75,7 @@ class HexManager(GameManager[HexState, HexAction]):
     def is_final_state(self, state: HexState) -> bool:
         return self.evaluate_final_state(state) != 0
 
-    def evaluate_final_state(self, state: HexState) -> float:
+    def evaluate_final_state(self, state: HexState) -> int:
         starts = ((0, y) for y in range(self.grid_size) if state.grid[y][0] == 0)
         if any(self.traverse_from(start, 0, state) for start in starts):
             return 1
@@ -85,10 +85,14 @@ class HexManager(GameManager[HexState, HexAction]):
         return 0
 
     def traverse_from(
-        self, coordinate: Tuple[int, int], player: int, state: HexState, visited=None
-    ):
+        self,
+        coordinate: Tuple[int, int],
+        player: int,
+        state: HexState,
+        visited: Optional[MutableSet[Tuple[int, int]]] = None,
+    ) -> bool:
         if visited is None:
-            visited = []
+            visited = set()
         if coordinate in visited:
             return False
         if (
@@ -98,13 +102,15 @@ class HexManager(GameManager[HexState, HexAction]):
             and coordinate[1] == self.grid_size - 1
         ):
             return True
-        visited.append(coordinate)
+        visited.add(coordinate)
         return any(
             self.traverse_from(neighbour, player, state, visited)
             for neighbour in self.get_neighbours(coordinate, player, state)
         )
 
-    def get_neighbours(self, coordinate: Tuple[int, int], player: int, state: HexState):
+    def get_neighbours(
+        self, coordinate: Tuple[int, int], player: int, state: HexState
+    ) -> Iterable[Tuple[int, int]]:
         x, y = coordinate
         shifts = [(0, -1), (1, -1), (1, 0), (0, 1), (-1, 1), (-1, 0)]
         for y_shift, x_shift in shifts:
@@ -118,7 +124,7 @@ class HexManager(GameManager[HexState, HexAction]):
                 yield shifted_x, shifted_y
 
 
-def hex_simulator(grid_size: int, M: int):
+def hex_simulator(grid_size: int, M: int) -> None:
     def state_evaluator(state: HexState) -> Tuple[float, Dict[HexAction, float]]:
         legal_actions = hex.legal_actions(state)
         return (
@@ -130,7 +136,7 @@ def hex_simulator(grid_size: int, M: int):
     mcts = MCTS(
         hex, M, lambda state: random.choice(hex.legal_actions(state)), state_evaluator
     )
-    for state, next_state, action, visit_distribution in mcts.run():
+    for state, next_state, action, _ in mcts.run():
         print(action.coordinate)
         print_hex_grid(state.grid)
         print("-" * 5)
@@ -138,7 +144,7 @@ def hex_simulator(grid_size: int, M: int):
     print(state.player)
 
 
-def print_hex_grid(grid):
+def print_hex_grid(grid: Sequence[Sequence[int]]) -> None:
     symbol = {-1: "#", 0: "0", 1: "1"}
     for i in range(len(grid) - 1):
         print(

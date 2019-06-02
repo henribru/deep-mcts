@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import random
-from typing import List, Tuple, Dict
+from typing import Tuple, Dict, Mapping, Sequence
 
 import numpy as np
 import torch
@@ -156,7 +156,7 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
         self.optimizer = torch.optim.SGD(self.net.parameters(), lr=0.1, momentum=0.9)
 
     def mask_illegal_moves(
-        self, states: List[HexState], output: torch.Tensor
+        self, states: Sequence[HexState], output: torch.Tensor
     ) -> torch.Tensor:
         states = np.stack(
             [
@@ -191,7 +191,7 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
         assert action in self.hex_manager.legal_actions(state)
         return action
 
-    def greedy_policy(self, state: HexState, epsilon=0) -> HexAction:
+    def greedy_policy(self, state: HexState, epsilon: float = 0) -> HexAction:
         if epsilon > 0:
             p = random.random()
             if p < epsilon:
@@ -220,7 +220,7 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
     def state_to_tensor(self, state: HexState) -> torch.Tensor:
         return self.states_to_tensor([state])
 
-    def states_to_tensor(self, states: List[HexState]) -> torch.Tensor:
+    def states_to_tensor(self, states: Sequence[HexState]) -> torch.Tensor:
         players = np.array(
             [
                 np.full(shape=(self.grid_size, self.grid_size), fill_value=state.player)
@@ -245,13 +245,16 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
             [0 if state.player == 1 else 1 for state in states]
         ).reshape((-1, 1, 1))
         #  assert np.all((first_player.sum(axis=1) - second_player.sum(axis=1)) <= 1)
-        states = np.stack((current_player, other_player, players), axis=1)
-        tensor = torch.as_tensor(states, device=DEVICE)
+        tensor = torch.as_tensor(
+            np.stack((current_player, other_player, players), axis=1), device=DEVICE
+        )
         assert tensor.shape == (len(states), 3, self.grid_size, self.grid_size)
         return tensor
 
     def distributions_to_tensor(
-        self, states: List[HexState], distributions: List[Dict[HexAction, float]]
+        self,
+        states: Sequence[HexState],
+        distributions: Sequence[Mapping[HexAction, float]],
     ) -> torch.Tensor:
         targets = np.zeros(
             (len(distributions), self.grid_size, self.grid_size), dtype=np.float32

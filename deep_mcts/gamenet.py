@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import random
 from abc import ABC, abstractmethod
-from typing import Callable, Dict, List, Tuple, TypeVar, Sequence, Generic
+from typing import Callable, Dict, Tuple, TypeVar, Sequence, Generic, Mapping
 
 import numpy as np
 import torch
@@ -71,7 +70,9 @@ class GameNet(ABC, Generic[S, A]):
         return value.item(), probabilities.cpu().detach().numpy()
 
     @abstractmethod
-    def mask_illegal_moves(self, states: List[S], output: torch.Tensor) -> torch.Tensor:
+    def mask_illegal_moves(
+        self, states: Sequence[S], output: torch.Tensor
+    ) -> torch.Tensor:
         ...
 
     @abstractmethod
@@ -83,10 +84,10 @@ class GameNet(ABC, Generic[S, A]):
         ...
 
     @abstractmethod
-    def evaluate_state(self, state: S) -> Tuple[float, Dict[Action, float]]:
+    def evaluate_state(self, state: S) -> Tuple[float, Dict[A, float]]:
         ...
 
-    def train(self, examples: Sequence[Tuple[S, Dict[A, float], float]]) -> None:
+    def train(self, examples: Sequence[Tuple[S, Mapping[A, float], float]]) -> None:
         self.optimizer.zero_grad()
         states, probability_targets, value_targets = zip(*examples)
         value_targets = torch.tensor(
@@ -134,17 +135,17 @@ class GameNet(ABC, Generic[S, A]):
         ...
 
     @abstractmethod
-    def states_to_tensor(self, states: List[S]) -> torch.Tensor:
+    def states_to_tensor(self, states: Sequence[S]) -> torch.Tensor:
         ...
 
     @abstractmethod
     def distributions_to_tensor(
-        self, states: List[S], distributions: List[Dict[A, float]]
+        self, states: Sequence[S], distributions: Sequence[Mapping[A, float]]
     ) -> torch.Tensor:
         ...
 
     @classmethod
-    def from_path(cls, path, *args, **kwargs) -> GameNet:
+    def from_path(cls, path: str, *args, **kwargs) -> GameNet:
         anet = cls(*args, **kwargs)
         anet.net.load_state_dict(torch.load(path))
         return anet

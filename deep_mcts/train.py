@@ -1,16 +1,23 @@
 from __future__ import annotations
 
 import functools
-from collections import deque
-from typing import Iterable, Tuple, Dict, Optional, TypeVar, Callable
-
-from deep_mcts.gamenet import GameNet
-from deep_mcts.game import State, Action
-from deep_mcts.hex.convolutionalnet import ConvolutionalHexNet
-from deep_mcts.mcts import MCTS, GameManager
-from deep_mcts.topp import topp
 import random
+from collections import deque
+from typing import (
+    Iterable,
+    Tuple,
+    Dict,
+    Optional,
+    TypeVar,
+    Callable,
+    Mapping,
+    MutableSequence,
+)
 
+from deep_mcts.game import State, Action, GameManager
+from deep_mcts.gamenet import GameNet
+from deep_mcts.mcts import MCTS
+from deep_mcts.topp import topp
 
 S = TypeVar("S", bound=State)
 A = TypeVar("A", bound=Action)
@@ -23,9 +30,11 @@ def train(
     num_search_games: int,
     save_interval: int,
     rollout_policy: Optional[Callable[[S], A]] = None,
-) -> Iterable[Tuple[State, State, Action, Dict[Action, float]]]:
-    replay_buffer = deque([], 100_000)
-    random_anet = ConvolutionalHexNet(grid_size=4)
+    opponent: Optional[Callable[[S], A]] = None,
+) -> Iterable[Tuple[S, S, A, Dict[A, float]]]:
+    replay_buffer: MutableSequence[Tuple[S, Mapping[A, float], float]] = deque(
+        [], 100_000
+    )
     game_net.save(f"anet-0.pth")
     for i in range(num_actual_games):
         print(i + 1)
@@ -47,14 +56,12 @@ def train(
             )  # TODO?
         examples = random.sample(replay_buffer, min(512, len(replay_buffer)))
         game_net.train(examples)
-        results = topp(
-            [
-                functools.partial(random_anet.greedy_policy, epsilon=0.10),
-                functools.partial(game_net.greedy_policy, epsilon=0.10),
-            ],
-            25,
-            game_manager,
-        )
-        print(results)
+        if opponent is not None:
+            results = topp(
+                [opponent, functools.partial(game_net.greedy_policy, epsilon=0.05)],
+                20,
+                game_manager,
+            )
+            print(results)
         if (i + 1) % save_interval == 0:
             game_net.save(f"anet-{i + 1}.pth")
