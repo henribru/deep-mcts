@@ -68,41 +68,48 @@ class MCTS(Generic[S, A]):
             path.append(node)
         return path
 
-    def expand_node(self, node: Node[S, A]) -> None:
+    def expand_node(self, node: Node[S, A]) -> float:
+        assert (node.E, node.N) == (0, 0)
         child_states = self.game_manager.generate_child_states(node.state)
         node.children = {
             action: Node(child_state) for action, child_state in child_states.items()
         }
         value, probabilities = self.state_evaluator(node.state)
-        node.E = value
         for action, node in node.children.items():
             node.P = probabilities[action]
-
-    def evaluate_leaf(self, leaf_node: Node[S, A]) -> float:
-        value = leaf_node.E
-        if self.rollout_policy is not None:
-            state = leaf_node.state
-            while not self.game_manager.is_final_state(state):
-                action = self.rollout_policy(state)
-                state = self.game_manager.generate_child_state(state, action)
-            value += self.game_manager.evaluate_final_state(state)
         return value
+
+    def rollout(self, node: Node[S, A]) -> float:
+        assert (node.E, node.N) == (0, 0)
+        if self.rollout_policy is None:
+            return 0
+        state = node.state
+        while not self.game_manager.is_final_state(state):
+            action = self.rollout_policy(state)
+            state = self.game_manager.generate_child_state(state, action)
+        return self.game_manager.evaluate_final_state(state)
 
     def backpropagate(self, path: Iterable[Node[S, A]], evaluation: float) -> None:
         for node in path:
             node.N += 1
             node.E += evaluation
+            assert -1.0 <= node.Q <= 1.0
 
     def run(self) -> Iterable[Tuple[S, S, A, Dict[A, float]]]:
         while not self.game_manager.is_final_state(self.root.state):
             for _ in range(self.M):
                 path = self.tree_search()
                 leaf_node = path[-1]
-                if not self.game_manager.is_final_state(leaf_node.state):
-                    self.expand_node(leaf_node)
-                    path.append(next(iter(leaf_node.children.values())))
-                evaluation = self.evaluate_leaf(path[-1])
+                if self.game_manager.is_final_state(leaf_node.state):
+                    evaluation = self.game_manager.evaluate_final_state(leaf_node.state)
+                else:
+                    evaluation = self.expand_node(leaf_node) + self.rollout(leaf_node)
                 self.backpropagate(path, evaluation)
+                if __debug__:
+                    if self.game_manager.is_final_state(leaf_node.state):
+                        assert leaf_node.Q == evaluation
+                    else:
+                        assert (leaf_node.N, leaf_node.E) == (1, evaluation)
             action, next_node = max(self.root.children.items(), key=lambda c: c[1].N)
             yield self.root.state, next_node.state, action, {
                 action: node.N / self.root.N
