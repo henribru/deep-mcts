@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Callable, Dict, Tuple, TypeVar, Sequence, Generic, Mapping
+from typing import Callable, Dict, Tuple, TypeVar, Sequence, Generic, Mapping, Type
 
 import numpy as np
 import torch
@@ -33,6 +33,7 @@ def cross_entropy(
 
 S = TypeVar("S", bound=State)
 A = TypeVar("A", bound=Action)
+T = TypeVar("T", bound="GameNet")
 
 
 class GameNet(ABC, Generic[S, A]):
@@ -145,7 +146,7 @@ class GameNet(ABC, Generic[S, A]):
         ...
 
     @classmethod
-    def from_path(cls, path: str, *args, **kwargs) -> GameNet[S, A]:
+    def from_path(cls: Type[T], path: str, *args, **kwargs) -> T:
         anet = cls(*args, **kwargs)
         anet.net.load_state_dict(torch.load(path))
         return anet
