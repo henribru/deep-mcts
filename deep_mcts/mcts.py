@@ -1,6 +1,16 @@
 from __future__ import annotations
 
-from typing import Callable, Dict, List, Tuple, Iterable, TypeVar, Generic, Optional, Mapping
+from typing import (
+    Callable,
+    Dict,
+    List,
+    Tuple,
+    Iterable,
+    TypeVar,
+    Generic,
+    Optional,
+    Mapping,
+)
 
 from math import sqrt
 
