@@ -145,6 +145,10 @@ class GameNet(ABC, Generic[S, A]):
     ) -> torch.Tensor:
         ...
 
+    @abstractmethod
+    def copy(self: T) -> T:
+        ...
+
     @classmethod
     def from_path(cls: Type[T], path: str, *args, **kwargs) -> T:
         anet = cls(*args, **kwargs)

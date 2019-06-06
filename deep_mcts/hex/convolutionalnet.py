@@ -269,3 +269,8 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
         targets = torch.as_tensor(targets, device=DEVICE)
         assert targets.shape == (len(distributions), self.grid_size, self.grid_size)
         return targets
+
+    def copy(self: ConvolutionalHexNet) -> ConvolutionalHexNet:
+        net = ConvolutionalHexNet(self.grid_size)
+        net.net.load_state_dict(self.net.state_dict())
+        return net
