@@ -109,12 +109,17 @@ class ConvolutionalHexModule(nn.Module):  # type: ignore
         self.conv1 = ConvolutionalBlock(
             in_channels=3, out_channels=channels, kernel_size=3, padding=1
         )
-        self.residual_blocks = [
-            ResidualBlock(
-                in_channels=channels, out_channels=channels, kernel_size=3, padding=1
-            )
-            for _ in range(num_residual)
-        ]
+        self.residual_blocks = torch.nn.ModuleList(
+            [
+                ResidualBlock(
+                    in_channels=channels,
+                    out_channels=channels,
+                    kernel_size=3,
+                    padding=1,
+                )
+                for _ in range(num_residual)
+            ]
+        )
         self.policy_head = PolicyHead(channels)
         self.value_head = ValueHead(grid_size, channels, hidden_units=64)
 
@@ -135,13 +140,6 @@ class ConvolutionalHexModule(nn.Module):  # type: ignore
         )
         assert value.shape == (input.shape[0], 1)
         return value, probabilities
-
-    def to(self, *args, **kwargs):
-        res = super().to(*args, **kwargs)
-        res.residual_blocks = [
-            residual_block.to(*args, **kwargs) for residual_block in res.residual_blocks
-        ]
-        return res
 
 
 class ConvolutionalHexNet(GameNet[HexState, HexAction]):
