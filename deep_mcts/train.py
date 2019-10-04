@@ -19,7 +19,6 @@ from deep_mcts.game import State, Action, GameManager
 from deep_mcts.gamenet import GameNet
 from deep_mcts.mcts import MCTS
 from deep_mcts.topp import topp
-from hex.convolutionalnet import ConvolutionalHexNet
 
 _S = TypeVar("_S", bound=State)
 _A = TypeVar("_A", bound=Action)
@@ -37,9 +36,6 @@ def train(
     replay_buffer = Deque[Tuple[_S, Dict[_A, float], float]]([], 100_000)
     game_net.save(f"anet-0.pth")
     random_opponent = lambda s: random.choice(game_manager.legal_actions(s))
-    # random_opponent = functools.partial(
-    #     ConvolutionalHexNet(game_net.grid_size).greedy_policy, epsilon=0.05
-    # )
     original_opponent = game_net.copy()
     previous_opponent: Optional[GameNet[_S, _A]] = None
     for i in range(num_games):
