@@ -106,7 +106,7 @@ def tic_tac_toe_simulator(num_simulations: int) -> None:
         print_tic_tac_toe_grid(state.grid)
         print("-" * 5)
     print_tic_tac_toe_grid(next_state.grid)
-    print(state.player)
+    print(manager.evaluate_final_state(next_state))
 
 
 def print_tic_tac_toe_grid(grid: Iterable[Iterable[int]]) -> None:
@@ -120,7 +120,7 @@ def print_tic_tac_toe_grid(grid: Iterable[Iterable[int]]) -> None:
 if __name__ == "__main__":
     tic_tac_toe_simulator(1000)
 
-"""C:\Users\henbruas\AppData\Local\pypoetry\Cache\virtualenvs\deep-mcts-py3.7\Scripts\python.exe "D:/OneDrive - NTNU/NTNU/IT3105/Deep MCTS/deep_mcts/tictactoe/game.py"
+r"""C:\Users\henbruas\AppData\Local\pypoetry\Cache\virtualenvs\deep-mcts-py3.7\Scripts\python.exe "D:/OneDrive - NTNU/NTNU/IT3105/Deep MCTS/deep_mcts/tictactoe/game.py"
 (0, 2)
 ###
 ###
