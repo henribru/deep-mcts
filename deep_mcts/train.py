@@ -94,4 +94,6 @@ def train(
             yield i + 1, random_evaluation, previous_evaluation
             previous_opponent = game_net.copy()
         if (i + 1) % save_interval == 0:
-            game_net.save(f"anet-{i + 1}.pth")
+            filename = f"anet-{i + 1}.pth"
+            game_net.save(filename)
+            print(f"Saved {filename}")
