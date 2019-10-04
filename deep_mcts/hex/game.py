@@ -78,14 +78,14 @@ class HexManager(GameManager[HexState, HexAction]):
 
     def evaluate_final_state(self, state: HexState) -> int:
         starts = ((0, y) for y in range(self.grid_size) if state.grid[y][0] == 0)
-        if any(self.traverse_from(start, 0, state) for start in starts):
+        if any(self._traverse_from(start, 0, state) for start in starts):
             return 1
         starts = ((x, 0) for x in range(self.grid_size) if state.grid[0][x] == 1)
-        if any(self.traverse_from(start, 1, state) for start in starts):
+        if any(self._traverse_from(start, 1, state) for start in starts):
             return -1
         return 0
 
-    def traverse_from(
+    def _traverse_from(
         self,
         coordinate: Tuple[int, int],
         player: int,
@@ -105,11 +105,11 @@ class HexManager(GameManager[HexState, HexAction]):
             return True
         visited.add(coordinate)
         return any(
-            self.traverse_from(neighbour, player, state, visited)
-            for neighbour in self.get_neighbours(coordinate, player, state)
+            self._traverse_from(neighbour, player, state, visited)
+            for neighbour in self._get_neighbours(coordinate, player, state)
         )
 
-    def get_neighbours(
+    def _get_neighbours(
         self, coordinate: Tuple[int, int], player: int, state: HexState
     ) -> Iterable[Tuple[int, int]]:
         x, y = coordinate
