@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import random
 from typing import Tuple, Dict, Sequence, Mapping
 
@@ -149,7 +147,7 @@ class FullyConnectedTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
         assert targets.shape == (len(distributions), 3 ** 2)
         return targets
 
-    def copy(self) -> FullyConnectedTicTacToeNet:
+    def copy(self) -> "FullyConnectedTicTacToeNet":
         net = FullyConnectedTicTacToeNet()
         net.net.load_state_dict(self.net.state_dict())
         return net

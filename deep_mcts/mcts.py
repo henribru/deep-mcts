@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from typing import (
     Callable,
     Dict,
@@ -22,7 +20,7 @@ _A = TypeVar("_A", bound=Action)
 
 class Node(Generic[_S, _A]):
     state: _S
-    children: Dict[_A, Node[_S, _A]]
+    children: Dict[_A, "Node[_S, _A]"]
     E: float
     N: int
     P: float
@@ -34,7 +32,7 @@ class Node(Generic[_S, _A]):
         self.N = 0
         self.P = 0
 
-    def u(self, parent: Node[_S, _A]) -> float:
+    def u(self, parent: "Node[_S, _A]") -> float:
         c = 1
         return c * self.P * sqrt(parent.N) / (1 + self.N)
 

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import random
 from typing import Tuple, Dict, Mapping, Sequence
 
@@ -271,7 +269,7 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
         assert targets.shape == (len(distributions), self.grid_size, self.grid_size)
         return targets
 
-    def copy(self: ConvolutionalHexNet) -> ConvolutionalHexNet:
+    def copy(self: "ConvolutionalHexNet") -> "ConvolutionalHexNet":
         net = ConvolutionalHexNet(self.grid_size)
         net.net.load_state_dict(self.net.state_dict())
         return net

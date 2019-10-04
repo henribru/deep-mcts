@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import random
 from typing import Tuple, Dict, Mapping, Sequence
 
@@ -241,7 +239,7 @@ class ConvolutionalTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
         assert targets.shape == (len(distributions), 3, 3)
         return targets
 
-    def copy(self) -> ConvolutionalTicTacToeNet:
+    def copy(self) -> "ConvolutionalTicTacToeNet":
         net = ConvolutionalTicTacToeNet()
         net.net.load_state_dict(self.net.state_dict())
         return net

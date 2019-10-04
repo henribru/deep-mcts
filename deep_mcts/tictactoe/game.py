@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import random
 from typing import List, Dict, Tuple, Iterable
 from dataclasses import dataclass

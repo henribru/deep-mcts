@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from deep_mcts import train
 from deep_mcts.hex.convolutionalnet import ConvolutionalHexNet
 from deep_mcts.hex.game import HexManager
