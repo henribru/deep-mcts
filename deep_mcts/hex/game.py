@@ -30,22 +30,23 @@ class HexManager(GameManager[HexState, HexAction]):
         )
 
     def generate_child_states(self, state: HexState) -> Dict[HexAction, HexState]:
-        child_states = {}
-        for y in range(self.grid_size):
-            for x in range(self.grid_size):
-                if state.grid[y][x] == -1:
-                    child_states[HexAction((x, y))] = HexState(
-                        (state.player + 1) % 2,
-                        [
-                            [
-                                state.player if (i, j) == (x, y) else state.grid[j][i]
-                                for i in range(self.grid_size)
-                            ]
-                            if j == y
-                            else state.grid[j]
-                            for j in range(self.grid_size)
-                        ],
-                    )
+        child_states = {
+            HexAction((x, y)): HexState(
+                (state.player + 1) % 2,
+                [
+                    [
+                        state.player if (i, j) == (x, y) else state.grid[j][i]
+                        for i in range(self.grid_size)
+                    ]
+                    if j == y
+                    else state.grid[j]
+                    for j in range(self.grid_size)
+                ],
+            )
+            for y in range(self.grid_size)
+            for x in range(self.grid_size)
+            if state.grid[y][x] == -1
+        }
         assert set(child_states.keys()) == set(self.legal_actions(state))
         return child_states
 
@@ -65,12 +66,12 @@ class HexManager(GameManager[HexState, HexAction]):
         )
 
     def legal_actions(self, state: HexState) -> List[HexAction]:
-        actions = []
-        for y in range(self.grid_size):
-            for x in range(self.grid_size):
-                if state.grid[y][x] == -1:
-                    actions.append(HexAction((x, y)))
-        return actions
+        return [
+            HexAction((x, y))
+            for y in range(self.grid_size)
+            for x in range(self.grid_size)
+            if state.grid[y][x] == -1
+        ]
 
     def is_final_state(self, state: HexState) -> bool:
         return self.evaluate_final_state(state) != 0

@@ -208,10 +208,11 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
 
     def evaluate_state(self, state: HexState) -> Tuple[float, Dict[HexAction, float]]:
         value, probabilities = self.forward(state)
-        actions = {}
-        for y in range(self.grid_size):
-            for x in range(self.grid_size):
-                actions[HexAction((x, y))] = probabilities[0, 0, y, x]
+        actions = {
+            HexAction((x, y)): probabilities[0, 0, y, x]
+            for y in range(self.grid_size)
+            for x in range(self.grid_size)
+        }
         assert set(
             action for action, probability in actions.items() if probability != 0
         ) == set(self.hex_manager.legal_actions(state))
