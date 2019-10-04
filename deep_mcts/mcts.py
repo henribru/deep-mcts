@@ -40,8 +40,8 @@ class Node(Generic[_S, _A]):
 
     @property
     def Q(self) -> float:
-        # TODO?
         if self.N == 0:
+            assert self.E == 0
             return 0
         return self.E / self.N
 
