@@ -92,15 +92,16 @@ class HexManager(GameManager[HexState, HexAction]):
         state: HexState,
         visited: Optional[MutableSet[Tuple[int, int]]] = None,
     ) -> bool:
+        x, y = coordinate
         if visited is None:
             visited = set()
         if coordinate in visited:
             return False
         if (
             player == 0
-            and coordinate[0] == self.grid_size - 1
+            and x == self.grid_size - 1
             or player == 1
-            and coordinate[1] == self.grid_size - 1
+            and y == self.grid_size - 1
         ):
             return True
         visited.add(coordinate)
