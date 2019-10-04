@@ -124,8 +124,11 @@ class MCTS(Generic[_S, _A]):
                     else:
                         assert (leaf_node.N, leaf_node.E) == (1, evaluation)
             action, next_node = max(self.root.children.items(), key=lambda c: c[1].N)
+            assert (
+                self.root.N == sum(node.N for node in self.root.children.values()) + 1
+            )
             yield self.root.state, next_node.state, action, {
-                action: node.N / self.root.N
+                action: node.N / (self.root.N - 1)
                 for action, node in self.root.children.items()
             }
             self.root = next_node
