@@ -47,7 +47,7 @@ class FullyConnectedTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
         self, states: Sequence[TicTacToeState], output: torch.Tensor
     ) -> torch.Tensor:
         states = np.stack([state.grid for state in states], axis=0).reshape(-1, 9)
-        legal_moves = torch.as_tensor(states == -1, dtype=torch.float32)
+        legal_moves = torch.as_tensor(states == -1, dtype=torch.float32, device=DEVICE)
         assert legal_moves.shape == output.shape
         result = output * legal_moves
         assert result.shape == output.shape

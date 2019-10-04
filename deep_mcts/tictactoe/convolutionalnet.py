@@ -156,7 +156,7 @@ class ConvolutionalTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
     ) -> torch.Tensor:
         states = np.stack([state.grid for state in states], axis=0)
         states = states[:, np.newaxis, ...]
-        legal_moves = torch.as_tensor(states == -1, dtype=torch.float32)
+        legal_moves = torch.as_tensor(states == -1, dtype=torch.float32, device=DEVICE)
         assert legal_moves.shape == output.shape
         result = output * legal_moves
         assert result.shape == output.shape

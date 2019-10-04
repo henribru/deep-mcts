@@ -65,7 +65,7 @@ class GameNet(ABC, Generic[_S, _A]):
         assert probabilities.shape == shape
         assert torch.allclose(
             torch.sum(probabilities, dim=tuple(range(1, probabilities.dim()))),
-            torch.tensor([1.0]),
+            torch.tensor([1.0], device=DEVICE),
         )
         return value.item(), probabilities.cpu().detach().numpy()
 
