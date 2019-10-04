@@ -126,14 +126,17 @@ class HexManager(GameManager[HexState, HexAction]):
                 yield shifted_x, shifted_y
 
 
-def hex_simulator(grid_size: int, M: int) -> None:
+def hex_simulator(grid_size: int, num_simulations: int) -> None:
     def state_evaluator(state: HexState) -> Tuple[float, Dict[HexAction, float]]:
-        legal_actions = hex.legal_actions(state)
-        return (0, {action: 1 / len(legal_actions) for action in legal_actions})
+        legal_actions = manager.legal_actions(state)
+        return 0, {action: 1 / len(legal_actions) for action in legal_actions}
 
-    hex = HexManager(grid_size)
+    manager = HexManager(grid_size)
     mcts = MCTS(
-        hex, M, lambda state: random.choice(hex.legal_actions(state)), state_evaluator
+        manager,
+        num_simulations,
+        lambda state: random.choice(manager.legal_actions(state)),
+        state_evaluator,
     )
     for state, next_state, action, _ in mcts.run():
         print(action.coordinate)
