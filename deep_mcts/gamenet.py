@@ -37,7 +37,7 @@ class GameNet(ABC, Generic[_S, _A]):
     net: "nn.Module[Any]"
     policy_criterion: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
     value_criterion: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
-    optimizer: torch.optim.optimizer.Optimizer
+    optimizer: "torch.optim.optimizer.Optimizer"
 
     def __init__(self) -> None:
         self.policy_criterion = cross_entropy  # type: ignore
