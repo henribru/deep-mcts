@@ -37,7 +37,7 @@ class FullyConnectedTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
 
     def __init__(self) -> None:
         super().__init__()
-        self.net = FullyConnectedTicTacToeModule()
+        self.net = FullyConnectedTicTacToeModule().to(DEVICE)
         self.manager = TicTacToeManager()
         self.optimizer = torch.optim.SGD(self.net.parameters(), lr=0.01, momentum=0.9)
 
