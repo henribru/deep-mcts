@@ -34,7 +34,7 @@ _T = TypeVar("_T", bound="GameNet")  # type: ignore
 
 
 class GameNet(ABC, Generic[_S, _A]):
-    net: nn.Module[Any]
+    net: "nn.Module[Any]"
     policy_criterion: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
     value_criterion: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
     optimizer: torch.optim.optimizer.Optimizer
