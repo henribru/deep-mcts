@@ -1,5 +1,6 @@
 import functools
 import random
+import time
 from collections import deque
 from typing import (
     Iterable,
@@ -38,6 +39,7 @@ def train(
     random_opponent = lambda s: random.choice(game_manager.legal_actions(s))
     original_opponent = game_net.copy()
     previous_opponent: Optional[GameNet[_S, _A]] = None
+    now = time.time()
     for i in range(num_games):
         mcts = MCTS(
             game_manager,
@@ -84,9 +86,10 @@ def train(
                 if previous_opponent is not None
                 else None
             )
-            print(i + 1, random_evaluation, previous_evaluation, original_evaluation)
-            yield i + 1, random_evaluation, previous_evaluation
             previous_opponent = game_net.copy()
+            print(i + 1, time.time() - now, random_evaluation, previous_evaluation, original_evaluation)
+            now = time.time()
+            yield i + 1, random_evaluation, previous_evaluation
         if (i + 1) % save_interval == 0:
             filename = f"anet-{i + 1}.pth"
             game_net.save(filename)
