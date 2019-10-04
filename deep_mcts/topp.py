@@ -12,22 +12,37 @@ _A = TypeVar("_A", bound=Action)
 
 def topp(
     agents: Sequence[Callable[[_S], _A]], num_games: int, game_manager: GameManager[_S, _A]
-) -> List[List[float]]:
-    results = [[0.0] * len(agents) for _ in range(len(agents))]
+) -> List[List[List[int]]]:
+    results = [[[0, 0, 0] for _ in range(len(agents))] for _ in range(len(agents))]
     for (i, agent_1), (j, agent_2) in itertools.combinations(enumerate(agents), 2):
         for k in range(num_games):
             if k % 2 == 0:
                 players = (agent_1, agent_2)
                 result = compare_agents(players, game_manager)
-                results[i][j] += result
-                results[j][i] -= result
+                if result == 1:
+                    results[i][j][0] += 1
+                    results[j][i][2] += 1
+                elif result == -1:
+                    results[j][i][0] += 1
+                    results[i][j][2] += 1
+                else:
+                    results[i][j][1] += 1
+                    results[j][i][1] += 1
             else:
                 players = (agent_2, agent_1)
                 result = compare_agents(players, game_manager)
-                results[i][j] -= result
-                results[j][i] += result
-        results[i][j] = (results[i][j] + num_games) / (2 * num_games)
-        results[j][i] = (results[j][i] + num_games) / (2 * num_games)
+                if result == 1:
+                    results[j][i][0] += 1
+                    results[i][j][2] += 1
+                elif result == -1:
+                    results[i][j][0] += 1
+                    results[j][i][2] += 1
+                else:
+                    results[i][j][1] += 1
+                    results[j][i][1] += 1
+        for k in range(3):
+            results[i][j][k] /= num_games
+            results[j][i][k] /= num_games
     return results
 
 
