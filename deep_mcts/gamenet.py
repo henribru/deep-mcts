@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Callable, Dict, Tuple, TypeVar, Sequence, Generic, Mapping, Type
+from typing import Callable, Dict, Tuple, TypeVar, Sequence, Generic, Mapping, Type, Any
 
 import numpy as np
-import torch
+import torch.optim.optimizer
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -31,23 +31,23 @@ def cross_entropy(
     return result
 
 
-S = TypeVar("S", bound=State)
-A = TypeVar("A", bound=Action)
-T = TypeVar("T", bound="GameNet")
+_S = TypeVar("_S", bound=State)
+_A = TypeVar("_A", bound=Action)
+_T = TypeVar("_T", bound="GameNet")  # type: ignore
 
 
-class GameNet(ABC, Generic[S, A]):
-    net: nn.Module
+class GameNet(ABC, Generic[_S, _A]):
+    net: nn.Module[Any]
     policy_criterion: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
     value_criterion: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
-    optimizer: torch.optim.Optimizer
+    optimizer: torch.optim.optimizer.Optimizer
 
-    def __init__(self):
-        self.policy_criterion = cross_entropy
-        self.value_criterion = nn.MSELoss().to(DEVICE)
+    def __init__(self) -> None:
+        self.policy_criterion = cross_entropy  # type: ignore
+        self.value_criterion = nn.MSELoss().to(DEVICE)  # type: ignore
 
-    def forward(self, state: S) -> Tuple[float, np.ndarray]:
-        states = self.state_to_tensor(state)
+    def forward(self, state: _S) -> Tuple[float, np.ndarray]:
+        states = self._state_to_tensor(state)
         value, probabilities = self.net.forward(states.float())
         value = torch.tanh(value)
         # The output value is from the perspective of the current player,
@@ -58,7 +58,7 @@ class GameNet(ABC, Generic[S, A]):
         assert probabilities.shape == shape
         probabilities = F.softmax(probabilities.reshape((1, -1)), dim=1).reshape(shape)
         assert probabilities.shape == shape
-        probabilities = self.mask_illegal_moves([state], probabilities)
+        probabilities = self._mask_illegal_moves([state], probabilities)
         assert probabilities.shape == shape
         probabilities = probabilities / torch.sum(
             probabilities, dim=tuple(range(1, probabilities.dim())), keepdim=True
@@ -71,33 +71,33 @@ class GameNet(ABC, Generic[S, A]):
         return value.item(), probabilities.cpu().detach().numpy()
 
     @abstractmethod
-    def mask_illegal_moves(
-        self, states: Sequence[S], output: torch.Tensor
+    def _mask_illegal_moves(
+        self, states: Sequence[_S], output: torch.Tensor
     ) -> torch.Tensor:
         ...
 
     @abstractmethod
-    def sampling_policy(self, state: S) -> A:
+    def sampling_policy(self, state: _S) -> _A:
         ...
 
     @abstractmethod
-    def greedy_policy(self, state: S, epsilon: float = 0) -> A:
+    def greedy_policy(self, state: _S, epsilon: float = 0) -> _A:
         ...
 
     @abstractmethod
-    def evaluate_state(self, state: S) -> Tuple[float, Dict[A, float]]:
+    def evaluate_state(self, state: _S) -> Tuple[float, Dict[_A, float]]:
         ...
 
-    def train(self, examples: Sequence[Tuple[S, Mapping[A, float], float]]) -> None:
+    def train(self, examples: Sequence[Tuple[_S, Mapping[_A, float], float]]) -> None:
         self.optimizer.zero_grad()
         states, probability_targets, value_targets = zip(*examples)
         value_targets = torch.tensor(
             value_targets, dtype=torch.float32, device=DEVICE
         ).reshape((-1, 1))
         assert value_targets.shape[0] == len(examples)
-        probability_targets = self.distributions_to_tensor(states, probability_targets)
+        probability_targets = self._distributions_to_tensor(states, probability_targets)
         assert probability_targets.shape[0] == len(examples)
-        states = self.states_to_tensor(states)
+        states = self._states_to_tensor(states)
         assert states.shape[0] == len(examples)
         values, probabilities = self.net.forward(states.float())
         values = torch.tanh(values)
@@ -118,9 +118,11 @@ class GameNet(ABC, Generic[S, A]):
         #  assert torch.allclose(
         #      torch.sum(output, dim=tuple(range(1, output.dim()))), torch.Tensor([1.0])
         #  )
-        loss = self.policy_criterion(
+        loss = self.policy_criterion(  # type: ignore
             probabilities, probability_targets
-        ) + self.value_criterion(values, value_targets)
+        ) + self.value_criterion(  # type: ignore
+            values, value_targets
+        )
         assert loss.shape == ()
         loss.backward()
         self.optimizer.step()
@@ -132,25 +134,25 @@ class GameNet(ABC, Generic[S, A]):
         self.net.load_state_dict(torch.load(path))
 
     @abstractmethod
-    def state_to_tensor(self, state: S) -> torch.Tensor:
+    def _state_to_tensor(self, state: _S) -> torch.Tensor:
         ...
 
     @abstractmethod
-    def states_to_tensor(self, states: Sequence[S]) -> torch.Tensor:
+    def _states_to_tensor(self, states: Sequence[_S]) -> torch.Tensor:
         ...
 
     @abstractmethod
-    def distributions_to_tensor(
-        self, states: Sequence[S], distributions: Sequence[Mapping[A, float]]
+    def _distributions_to_tensor(
+        self, states: Sequence[_S], distributions: Sequence[Mapping[_A, float]]
     ) -> torch.Tensor:
         ...
 
     @abstractmethod
-    def copy(self: T) -> T:
+    def copy(self: _T) -> _T:
         ...
 
     @classmethod
-    def from_path(cls: Type[T], path: str, *args, **kwargs) -> T:
-        anet = cls(*args, **kwargs)
-        anet.net.load_state_dict(torch.load(path))
+    def from_path(cls: Type[_T], path: str, *args: Any, **kwargs: Any) -> _T:
+        anet = cls(*args, **kwargs)  # type: ignore
+        anet.load(path)
         return anet

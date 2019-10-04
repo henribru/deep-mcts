@@ -16,25 +16,25 @@ from math import sqrt
 
 from deep_mcts.game import GameManager, State, Action
 
-S = TypeVar("S", bound=State)
-A = TypeVar("A", bound=Action)
+_S = TypeVar("_S", bound=State)
+_A = TypeVar("_A", bound=Action)
 
 
-class Node(Generic[S, A]):
-    state: S
-    children: Dict[A, Node[S, A]]
+class Node(Generic[_S, _A]):
+    state: _S
+    children: Dict[_A, Node[_S, _A]]
     E: float
     N: int
     P: float
 
-    def __init__(self, state: S):
+    def __init__(self, state: _S) -> None:
         self.state = state
         self.children = {}
         self.E = 0
         self.N = 0
         self.P = 0
 
-    def u(self, parent: Node[S, A]) -> float:
+    def u(self, parent: Node[_S, _A]) -> float:
         c = 1
         return c * self.P * sqrt(parent.N) / (1 + self.N)
 
@@ -46,28 +46,28 @@ class Node(Generic[S, A]):
         return self.E / self.N
 
 
-class MCTS(Generic[S, A]):
-    game_manager: GameManager[S, A]
-    root: Node[S, A]
-    M: int
-    rollout_policy: Optional[Callable[[S], A]]
-    state_evaluator: Callable[[S], Tuple[float, Mapping[A, float]]]
+class MCTS(Generic[_S, _A]):
+    game_manager: GameManager[_S, _A]
+    root: Node[_S, _A]
+    num_simulations: int
+    rollout_policy: Optional[Callable[[_S], _A]]
+    state_evaluator: Callable[[_S], Tuple[float, Mapping[_A, float]]]
 
     def __init__(
         self,
-        game_manager: GameManager[S, A],
-        M: int,
-        rollout_policy: Optional[Callable[[S], A]],
-        state_evaluator: Callable[[S], Tuple[float, Mapping[A, float]]],
-    ):
+        game_manager: GameManager[_S, _A],
+        num_simulations: int,
+        rollout_policy: Optional[Callable[[_S], _A]],
+        state_evaluator: Callable[[_S], Tuple[float, Mapping[_A, float]]],
+    ) -> None:
         self.game_manager = game_manager
-        self.M = M
+        self.num_simulations = num_simulations
         self.rollout_policy = rollout_policy
-        self.state_evaluator = state_evaluator
+        self.state_evaluator = state_evaluator  # type: ignore
         initial_state = self.game_manager.initial_game_state()
         self.root = Node(initial_state)
 
-    def tree_search(self) -> List[Node[S, A]]:
+    def tree_search(self) -> List[Node[_S, _A]]:
         path = [self.root]
         node = self.root
         while node.children:
@@ -78,18 +78,18 @@ class MCTS(Generic[S, A]):
             path.append(node)
         return path
 
-    def expand_node(self, node: Node[S, A]) -> float:
+    def expand_node(self, node: Node[_S, _A]) -> float:
         assert (node.E, node.N) == (0.0, 0)
         child_states = self.game_manager.generate_child_states(node.state)
         node.children = {
             action: Node(child_state) for action, child_state in child_states.items()
         }
-        value, probabilities = self.state_evaluator(node.state)
+        value, probabilities = self.state_evaluator(node.state)  # type: ignore
         for action, node in node.children.items():
             node.P = probabilities[action]
         return value
 
-    def rollout(self, node: Node[S, A]) -> float:
+    def rollout(self, node: Node[_S, _A]) -> float:
         assert (node.E, node.N) == (0.0, 0)
         if self.rollout_policy is None:
             return 0
@@ -99,21 +99,21 @@ class MCTS(Generic[S, A]):
             state = self.game_manager.generate_child_state(state, action)
         return self.game_manager.evaluate_final_state(state)
 
-    def backpropagate(self, path: Iterable[Node[S, A]], evaluation: float) -> None:
+    def backpropagate(self, path: Iterable[Node[_S, _A]], evaluation: float) -> None:
         for node in path:
             node.N += 1
             node.E += evaluation
             assert -1.0 <= node.Q <= 1.0
 
-    def evaluate_leaf(self, leaf_node: Node[S, A]) -> float:
+    def evaluate_leaf(self, leaf_node: Node[_S, _A]) -> float:
         if self.game_manager.is_final_state(leaf_node.state):
             return self.game_manager.evaluate_final_state(leaf_node.state)
         else:
             return self.expand_node(leaf_node) + self.rollout(leaf_node)
 
-    def run(self) -> Iterable[Tuple[S, S, A, Dict[A, float]]]:
+    def run(self) -> Iterable[Tuple[_S, _S, _A, Dict[_A, float]]]:
         while not self.game_manager.is_final_state(self.root.state):
-            for _ in range(self.M):
+            for _ in range(self.num_simulations):
                 path = self.tree_search()
                 leaf_node = path[-1]
                 evaluation = self.evaluate_leaf(leaf_node)

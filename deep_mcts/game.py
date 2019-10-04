@@ -15,31 +15,31 @@ class Action(ABC):
     pass
 
 
-S = TypeVar("S", bound=State)
-A = TypeVar("A", bound=Action)
+_S = TypeVar("_S", bound=State)
+_A = TypeVar("_A", bound=Action)
 
 
-class GameManager(ABC, Generic[S, A]):
+class GameManager(ABC, Generic[_S, _A]):
     @abstractmethod
-    def initial_game_state(self) -> S:
+    def initial_game_state(self) -> _S:
         ...
 
     @abstractmethod
-    def generate_child_states(self, state: S) -> Dict[A, S]:
+    def generate_child_states(self, state: _S) -> Dict[_A, _S]:
         ...
 
     @abstractmethod
-    def generate_child_state(self, state: S, action: A) -> S:
+    def generate_child_state(self, state: _S, action: _A) -> _S:
         ...
 
     @abstractmethod
-    def legal_actions(self, state: S) -> List[A]:
+    def legal_actions(self, state: _S) -> List[_A]:
         ...
 
     @abstractmethod
-    def is_final_state(self, state: S) -> bool:
+    def is_final_state(self, state: _S) -> bool:
         ...
 
     @abstractmethod
-    def evaluate_final_state(self, state: S) -> int:
+    def evaluate_final_state(self, state: _S) -> int:
         ...

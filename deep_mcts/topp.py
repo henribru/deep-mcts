@@ -6,12 +6,12 @@ from typing import Tuple, List, Callable, TypeVar, Sequence
 from deep_mcts.game import State, Action
 from deep_mcts.mcts import GameManager
 
-S = TypeVar("S", bound=State)
-A = TypeVar("A", bound=Action)
+_S = TypeVar("_S", bound=State)
+_A = TypeVar("_A", bound=Action)
 
 
 def topp(
-    agents: Sequence[Callable[[S], A]], num_games: int, game_manager: GameManager[S, A]
+    agents: Sequence[Callable[[_S], _A]], num_games: int, game_manager: GameManager[_S, _A]
 ) -> List[List[float]]:
     results = [[0.0] * len(agents) for _ in range(len(agents))]
     for (i, agent_1), (j, agent_2) in itertools.combinations(enumerate(agents), 2):
@@ -32,7 +32,7 @@ def topp(
 
 
 def compare_agents(
-    players: Tuple[Callable[[S], A], Callable[[S], A]], game_manager: GameManager[S, A]
+    players: Tuple[Callable[[_S], _A], Callable[[_S], _A]], game_manager: GameManager[_S, _A]
 ) -> int:
     state = game_manager.initial_game_state()
     player = 0

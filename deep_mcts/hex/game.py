@@ -20,7 +20,7 @@ class HexAction(Action):
 class HexManager(GameManager[HexState, HexAction]):
     grid_size: int
 
-    def __init__(self, grid_size: int):
+    def __init__(self, grid_size: int) -> None:
         super().__init__()
         self.grid_size = grid_size
 

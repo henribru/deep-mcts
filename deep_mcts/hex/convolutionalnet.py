@@ -13,10 +13,10 @@ from deep_mcts.gamenet import GameNet, DEVICE
 from deep_mcts.hex.game import HexAction, HexState, HexManager
 
 
-class ConvolutionalBlock(nn.Module):
+class ConvolutionalBlock(nn.Module):  # type: ignore
     def __init__(
         self, in_channels: int, out_channels: int, kernel_size: int, padding: int
-    ):
+    ) -> None:
         super().__init__()
         self.conv1 = nn.Conv2d(
             in_channels=in_channels,
@@ -26,17 +26,17 @@ class ConvolutionalBlock(nn.Module):
         )
         self.bn1 = nn.BatchNorm2d(out_channels)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:  # type: ignore
         x = self.conv1(x)
         x = self.bn1(x)
         x = F.relu(x)
         return x
 
 
-class ResidualBlock(nn.Module):
+class ResidualBlock(nn.Module):  # type: ignore
     def __init__(
         self, in_channels: int, out_channels: int, kernel_size: int, padding: int
-    ):
+    ) -> None:
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -46,7 +46,7 @@ class ResidualBlock(nn.Module):
         self.bn2 = nn.BatchNorm2d(out_channels)
         self.projection = nn.Conv2d(in_channels, out_channels, kernel_size=1)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:  # type: ignore
         input = x
         assert input.shape == (
             input.shape[0],
@@ -70,8 +70,8 @@ class ResidualBlock(nn.Module):
         return x
 
 
-class PolicyHead(nn.Module):
-    def __init__(self, in_channels: int):
+class PolicyHead(nn.Module):  # type: ignore
+    def __init__(self, in_channels: int) -> None:
         super().__init__()
         self.conv1 = ConvolutionalBlock(
             in_channels=in_channels, out_channels=in_channels, kernel_size=3, padding=1
@@ -80,14 +80,14 @@ class PolicyHead(nn.Module):
             in_channels=in_channels, out_channels=1, kernel_size=3, padding=1
         )
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:  # type: ignore
         x = self.conv1(x)
         x = self.conv2(x)
         return x
 
 
-class ValueHead(nn.Module):
-    def __init__(self, grid_size: int, in_channels: int, hidden_units: int):
+class ValueHead(nn.Module):  # type: ignore
+    def __init__(self, grid_size: int, in_channels: int, hidden_units: int) -> None:
         super().__init__()
         self.conv1 = ConvolutionalBlock(
             in_channels=in_channels, out_channels=1, kernel_size=1, padding=0
@@ -95,7 +95,7 @@ class ValueHead(nn.Module):
         self.fc1 = nn.Linear(in_features=grid_size ** 2, out_features=hidden_units)
         self.fc2 = nn.Linear(in_features=hidden_units, out_features=1)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:  # type: ignore
         x = self.conv1(x)
         x = self.fc1(x.reshape((x.shape[0], -1)))
         x = F.relu(x)
@@ -103,8 +103,8 @@ class ValueHead(nn.Module):
         return x
 
 
-class ConvolutionalHexModule(nn.Module):
-    def __init__(self, num_residual: int, grid_size: int, channels: int):
+class ConvolutionalHexModule(nn.Module):  # type: ignore
+    def __init__(self, num_residual: int, grid_size: int, channels: int) -> None:
         super().__init__()
         self.conv1 = ConvolutionalBlock(
             in_channels=3, out_channels=channels, kernel_size=3, padding=1
@@ -118,7 +118,9 @@ class ConvolutionalHexModule(nn.Module):
         self.policy_head = PolicyHead(channels)
         self.value_head = ValueHead(grid_size, channels, hidden_units=64)
 
-    def forward(self, x):
+    def forward(  # type: ignore
+        self, x: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         input = x
         assert input.shape == (input.shape[0], 3, input.shape[2], input.shape[3])
         x = self.conv1(x)
@@ -146,7 +148,7 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
     grid_size: int
     hex_manager: HexManager
 
-    def __init__(self, grid_size: int):
+    def __init__(self, grid_size: int) -> None:
         super().__init__()
         self.net = ConvolutionalHexModule(
             num_residual=3, grid_size=grid_size, channels=16
@@ -155,7 +157,7 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
         self.hex_manager = HexManager(grid_size)
         self.optimizer = torch.optim.SGD(self.net.parameters(), lr=0.1, momentum=0.9)
 
-    def mask_illegal_moves(
+    def _mask_illegal_moves(
         self, states: Sequence[HexState], output: torch.Tensor
     ) -> torch.Tensor:
         states = np.stack(
@@ -217,10 +219,10 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
         ) == set(self.hex_manager.legal_actions(state))
         return value, actions
 
-    def state_to_tensor(self, state: HexState) -> torch.Tensor:
-        return self.states_to_tensor([state])
+    def _state_to_tensor(self, state: HexState) -> torch.Tensor:
+        return self._states_to_tensor([state])
 
-    def states_to_tensor(self, states: Sequence[HexState]) -> torch.Tensor:
+    def _states_to_tensor(self, states: Sequence[HexState]) -> torch.Tensor:
         players = np.array(
             [
                 np.full(shape=(self.grid_size, self.grid_size), fill_value=state.player)
@@ -251,7 +253,7 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
         assert tensor.shape == (len(states), 3, self.grid_size, self.grid_size)
         return tensor
 
-    def distributions_to_tensor(
+    def _distributions_to_tensor(
         self,
         states: Sequence[HexState],
         distributions: Sequence[Mapping[HexAction, float]],
