@@ -5,15 +5,24 @@ description = ""
 authors = ["Your Name <you@example.com>"]
 
 [tool.poetry.dependencies]
-python = "^3.7"
+python = "^3.6"
+# torch = [
+#     {path = "vendor/torch-1.2.0-cp37-cp37m-win_amd64.whl",sys_platform = "win32"},
+#     {version = "^1.2.0",sys_platform = "linux"}
+# ]
 torch = {path = "vendor/torch-1.2.0-cp37-cp37m-win_amd64.whl"}
+# torchvision = [
+#     {path = "vendor/torchvision-0.4.0-cp37-cp37m-win_amd64.whl",sys_platform = "win32"},
+#     {version = "^0.4.0",sys_platform = "linux"}
+# ]
 torchvision = {path = "vendor/torchvision-0.4.0-cp37-cp37m-win_amd64.whl"}
 pandas = "^0.25.1"
 matplotlib = "^3.1"
+# dataclasses = {version = "^0.6",python = "~3.6"}
 
 [tool.poetry.dev-dependencies]
 black = {version = "^18.3-alpha.0",allows-prereleases = true}
-mypy = "^0.720.0"
+mypy = "^0.730.0"
 pylint = "^2.3"
 ipython = "^7.5"
 jupyter = "^1.0"
