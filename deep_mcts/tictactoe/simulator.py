@@ -15,7 +15,7 @@ def tic_tac_toe_simulator(
     evaluation_interval: int,
 ) -> None:
     manager = TicTacToeManager()
-    anet = FullyConnectedTicTacToeNet()
+    anet = ConvolutionalTicTacToeNet()
     evaluations = pd.DataFrame.from_dict(
         {
             i: (random_evaluation, previous_evaluation)
@@ -37,7 +37,10 @@ def tic_tac_toe_simulator(
 if __name__ == "__main__":
     num_actual_games = 100_000
     tic_tac_toe_simulator(
-        num_actual_games, num_search_games=100, save_interval=100, evaluation_interval=5
+        num_actual_games,
+        num_search_games=100,
+        save_interval=100,
+        evaluation_interval=100,
     )
     # state_manager = HexManager(4)
     # print(topp([ConvolutionalHexNet(4).sampling_policy, ConvolutionalHexNet(4).sampling_policy], 100, state_manager))

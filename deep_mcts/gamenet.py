@@ -9,6 +9,8 @@ import torch.nn.functional as F
 from deep_mcts.mcts import Action, State
 
 # DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+from deep_mcts.tournament import Agent
+
 DEVICE = torch.device("cpu")
 
 
@@ -153,3 +155,29 @@ class GameNet(ABC, Generic[_S, _A]):
         anet = cls(*args, **kwargs)  # type: ignore
         anet.load(path)
         return anet
+
+
+class GameNetAgent(Agent[_S, _A], ABC):
+    net: GameNet[_S, _A]
+
+    def __init__(self, net: GameNet[_S, _A]):
+        self.net = net
+
+    def reset(self) -> None:
+        pass
+
+
+class GreedyGameNetAgent(GameNetAgent[_S, _A]):
+    epsilon: float
+
+    def __init__(self, net: GameNet[_S, _A], epsilon: float = 0):
+        super().__init__(net)
+        self.epsilon = epsilon
+
+    def play(self, state: _S) -> _A:
+        return self.net.greedy_policy(state, self.epsilon)
+
+
+class SamplingGameNetAgent(GameNetAgent[_S, _A]):
+    def play(self, state: _S) -> _A:
+        return self.net.sampling_policy(state)

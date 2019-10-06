@@ -1,5 +1,5 @@
 import random
-from typing import Tuple, Dict, Mapping, Sequence
+from typing import Tuple, Dict, Mapping, Sequence, Any
 
 import numpy as np
 import torch
@@ -185,6 +185,7 @@ class ConvolutionalTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
         y, x = np.unravel_index(
             np.argmax(action_probabilities), action_probabilities.shape
         )
+        assert action_probabilities[y][x] == action_probabilities.max()
         action = TicTacToeAction((x, y))
         assert action in self.manager.legal_actions(state)
         return action
@@ -231,7 +232,7 @@ class ConvolutionalTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
         distributions: Sequence[Mapping[TicTacToeAction, float]],
     ) -> torch.Tensor:
         targets = np.zeros((len(distributions), 3, 3), dtype=np.float32)
-        for i, (state, distribution) in enumerate(zip(states, distributions)):
+        for i, distribution in enumerate(distributions):
             for action, probability in distribution.items():
                 x, y = action.coordinate
                 targets[i][y][x] = probability

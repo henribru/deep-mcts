@@ -1,25 +1,11 @@
-import functools
 import random
 import time
-from collections import deque
-from typing import (
-    Iterable,
-    Tuple,
-    Dict,
-    Optional,
-    TypeVar,
-    Callable,
-    Mapping,
-    MutableSequence,
-    Deque,
-    List,
-    Dict,
-)
+from typing import Iterable, Tuple, Optional, TypeVar, Callable, Deque, Dict
 
 from deep_mcts.game import State, Action, GameManager
 from deep_mcts.gamenet import GameNet
-from deep_mcts.mcts import MCTS
-from deep_mcts.topp import topp
+from deep_mcts.mcts import MCTS, GreedyMCTSAgent
+from deep_mcts.tournament import tournament, RandomAgent
 
 _S = TypeVar("_S", bound=State)
 _A = TypeVar("_A", bound=Action)
@@ -33,12 +19,22 @@ def train(
     save_interval: int,
     evaluation_interval: int,
     rollout_policy: Optional[Callable[[_S], _A]] = None,
-) -> Iterable[Tuple[int, float, Optional[float]]]:
+) -> Iterable[Tuple[int, Tuple[float, float, float], Optional[Tuple[float, float, float]]]]:
     replay_buffer = Deque[Tuple[_S, Dict[_A, float], float]]([], 100_000)
     game_net.save(f"anet-0.pth")
-    random_opponent = lambda s: random.choice(game_manager.legal_actions(s))
+    random_opponent = RandomAgent(game_manager)
     original_opponent = game_net.copy()
-    previous_opponent: Optional[GameNet[_S, _A]] = None
+    epsilon = 0.1
+    original_agent = GreedyMCTSAgent(
+        MCTS(
+            game_manager,
+            100,
+            rollout_policy,
+            state_evaluator=original_opponent.evaluate_state,
+        ),
+        epsilon,
+    )
+    previous_agent: Optional[GreedyMCTSAgent[_S, _A]] = None
     now = time.time()
     for i in range(num_games):
         mcts = MCTS(
@@ -48,49 +44,54 @@ def train(
             state_evaluator=game_net.evaluate_state,
         )
         examples = []
-        for state, next_state, action, visit_distribution in mcts.run():
+        for state, next_state, action, visit_distribution in mcts.self_play():
             examples.append((state, visit_distribution))
         outcome = game_manager.evaluate_final_state(next_state)
         for state, visit_distribution in examples:
             # We want the target value to be from the perspective of the current player in that state
             replay_buffer.append(
                 (state, visit_distribution, outcome if state.player == 0 else -outcome)
-            )  # TODO?
+            )
         examples = random.sample(replay_buffer, min(512, len(replay_buffer)))
         game_net.train(examples)
-        if (i + 1) % evaluation_interval == 0:
-            random_evaluation = topp(
-                [random_opponent, game_net.greedy_policy], 20, game_manager
-            )[1][0]
-            original_evaluation = (
-                topp(
-                    [
-                        original_opponent.greedy_policy,
-                        game_net.greedy_policy,
-                    ],
-                    2,
-                    game_manager,
-                )[1][0]
+        if evaluation_interval != 0 and (i + 1) % evaluation_interval == 0:
+            mcts = MCTS(
+                game_manager,
+                100,
+                rollout_policy,
+                state_evaluator=game_net.evaluate_state,
             )
+            agent = GreedyMCTSAgent(mcts, epsilon)
+            random_evaluation = tournament(
+                [random_opponent, GreedyMCTSAgent(mcts)], 50, game_manager
+            )[1][0]
+            original_evaluation = tournament([original_agent, agent], 50, game_manager)[
+                1
+            ][0]
             previous_evaluation = (
-                topp(
-                    [
-                        functools.partial(
-                            previous_opponent.greedy_policy, epsilon=0.05
-                        ),
-                        functools.partial(game_net.greedy_policy, epsilon=0.05),
-                    ],
-                    20,
-                    game_manager,
-                )[1][0]
-                if previous_opponent is not None
+                tournament([previous_agent, agent], 50, game_manager)[1][0]
+                if previous_agent is not None
                 else None
             )
-            previous_opponent = game_net.copy()
-            print(i + 1, time.time() - now, random_evaluation, previous_evaluation, original_evaluation)
+            previous_agent = GreedyMCTSAgent(
+                MCTS(
+                    game_manager,
+                    100,
+                    rollout_policy,
+                    state_evaluator=game_net.copy().evaluate_state,
+                ),
+                epsilon,
+            )
+            print(
+                i + 1,
+                time.time() - now,
+                random_evaluation,
+                previous_evaluation,
+                original_evaluation,
+            )
             now = time.time()
             yield i + 1, random_evaluation, previous_evaluation
-        if (i + 1) % save_interval == 0:
-            filename = f"anet-{i + 1}.pth"
-            game_net.save(filename)
-            print(f"Saved {filename}")
+        if save_interval != 0 and (i + 1) % save_interval == 0:
+            filepath = f"saves/anet-{i + 1}.pth"
+            game_net.save(filepath)
+            print(f"Saved {filepath}")

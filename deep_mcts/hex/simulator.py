@@ -38,7 +38,7 @@ if __name__ == "__main__":
         num_actual_games,
         num_simulations=100,
         save_interval=100,
-        evaluation_interval=5,
+        evaluation_interval=10,
     )
     # state_manager = HexManager(4)
     # print(topp([ConvolutionalHexNet(4).sampling_policy, ConvolutionalHexNet(4).sampling_policy], 100, state_manager))

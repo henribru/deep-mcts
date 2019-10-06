@@ -1,3 +1,5 @@
+import random
+from abc import abstractmethod, ABC
 from typing import (
     Callable,
     Dict,
@@ -9,10 +11,12 @@ from typing import (
     Optional,
     Mapping,
 )
-
 from math import sqrt
+import numpy as np
+import typing
 
 from deep_mcts.game import GameManager, State, Action
+from deep_mcts.tournament import Agent
 
 _S = TypeVar("_S", bound=State)
 _A = TypeVar("_A", bound=Action)
@@ -109,24 +113,85 @@ class MCTS(Generic[_S, _A]):
         else:
             return self.expand_node(leaf_node) + self.rollout(leaf_node)
 
-    def run(self) -> Iterable[Tuple[_S, _S, _A, Dict[_A, float]]]:
+    def self_play(self) -> Iterable[Tuple[_S, _S, _A, Dict[_A, float]]]:
         while not self.game_manager.is_final_state(self.root.state):
-            for _ in range(self.num_simulations):
-                path = self.tree_search()
-                leaf_node = path[-1]
-                evaluation = self.evaluate_leaf(leaf_node)
-                self.backpropagate(path, evaluation)
-                if __debug__:
-                    if self.game_manager.is_final_state(leaf_node.state):
-                        assert leaf_node.Q == evaluation
-                    else:
-                        assert (leaf_node.N, leaf_node.E) == (1, evaluation)
-            action, next_node = max(self.root.children.items(), key=lambda c: c[1].N)
-            assert (
-                self.root.N == sum(node.N for node in self.root.children.values()) + 1
+            action_probabilities = self.step()
+            action = max(
+                action_probabilities.keys(), key=lambda a: action_probabilities[a]
             )
-            yield self.root.state, next_node.state, action, {
-                action: node.N / (self.root.N - 1)
-                for action, node in self.root.children.items()
-            }
+            next_node = self.root.children[action]
+            current_node = self.root
             self.root = next_node
+            yield current_node.state, next_node.state, action, action_probabilities
+
+    def step(self) -> Dict[_A, float]:
+        for _ in range(self.num_simulations):
+            path = self.tree_search()
+            leaf_node = path[-1]
+            evaluation = self.evaluate_leaf(leaf_node)
+            self.backpropagate(path, evaluation)
+            if self.game_manager.is_final_state(leaf_node.state):
+                assert leaf_node.Q == evaluation
+            else:
+                assert (leaf_node.N, leaf_node.E) == (1, evaluation)
+        assert self.root.N == sum(node.N for node in self.root.children.values()) + 1
+        return {
+            action: node.N / (self.root.N - 1)
+            for action, node in self.root.children.items()
+        }
+
+    def reset(self) -> None:
+        self.root = Node(self.game_manager.initial_game_state())
+
+
+class MCTSAgent(Agent[_S, _A], ABC):
+    mcts: MCTS[_S, _A]
+
+    def __init__(self, mcts: MCTS[_S, _A]) -> None:
+        self.mcts = mcts
+
+    def play(self, state: _S) -> _A:
+        if not any(child.state == state for child in self.mcts.root.children.values()):
+            assert len(self.mcts.root.children) == 0
+        self.mcts.root = next(
+            (
+                child
+                for child in self.mcts.root.children.values()
+                if child.state == state
+            ),
+            Node(state),
+        )
+        # self.mcts.root = next((child for child in self.mcts.root.children.values() if child.state == state), None)
+        action_probabilities = self.mcts.step()
+        action = self.strategy(action_probabilities)
+        self.mcts.root = self.mcts.root.children[action]
+        return action
+
+    def reset(self) -> None:
+        self.mcts.reset()
+
+    @abstractmethod
+    def strategy(self, action_probabilities: Dict[_A, float]) -> _A:
+        ...
+
+
+class GreedyMCTSAgent(MCTSAgent[_S, _A]):
+    def __init__(self, mcts: MCTS[_S, _A], epsilon: float = 0) -> None:
+        super().__init__(mcts)
+        self.epsilon = epsilon
+
+    def strategy(self, action_probabilities: Dict[_A, float]) -> _A:
+        if self.epsilon > 0:
+            p = random.random()
+            if p < self.epsilon:
+                return random.choice(list(action_probabilities.keys()))
+        return max(action_probabilities.keys(), key=lambda a: action_probabilities[a])
+
+
+class SamplingMCTSAgent(MCTSAgent[_S, _A]):
+    def strategy(self, action_probabilities: Dict[_A, float]) -> _A:
+        return list(action_probabilities.keys())[
+            typing.cast(int, np.random.choice(
+                len(action_probabilities), p=list(action_probabilities.values())
+            ))
+        ]

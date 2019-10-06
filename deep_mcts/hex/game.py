@@ -136,7 +136,7 @@ def hex_simulator(grid_size: int, num_simulations: int) -> None:
         lambda state: random.choice(manager.legal_actions(state)),
         state_evaluator,
     )
-    for state, next_state, action, _ in mcts.run():
+    for state, next_state, action, _ in mcts.self_play():
         print(action.coordinate)
         print_hex_grid(state.grid)
         print("-" * 5)
