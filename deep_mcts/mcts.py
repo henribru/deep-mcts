@@ -54,6 +54,7 @@ class MCTS(Generic[_S, _A]):
     num_simulations: int
     rollout_policy: Optional[Callable[[_S], _A]]
     state_evaluator: Callable[[_S], Tuple[float, Mapping[_A, float]]]
+    epsilon: float
 
     def __init__(
         self,
@@ -61,6 +62,7 @@ class MCTS(Generic[_S, _A]):
         num_simulations: int,
         rollout_policy: Optional[Callable[[_S], _A]],
         state_evaluator: Callable[[_S], Tuple[float, Mapping[_A, float]]],
+        epsilon: float = 0,
     ) -> None:
         self.game_manager = game_manager
         self.num_simulations = num_simulations
@@ -68,6 +70,7 @@ class MCTS(Generic[_S, _A]):
         self.state_evaluator = state_evaluator  # type: ignore
         initial_state = self.game_manager.initial_game_state()
         self.root = Node(initial_state)
+        self.epsilon = epsilon
 
     def tree_search(self) -> List[Node[_S, _A]]:
         path = [self.root]
@@ -116,9 +119,12 @@ class MCTS(Generic[_S, _A]):
     def self_play(self) -> Iterable[Tuple[_S, _S, _A, Dict[_A, float]]]:
         while not self.game_manager.is_final_state(self.root.state):
             action_probabilities = self.step()
-            action = max(
-                action_probabilities.keys(), key=lambda a: action_probabilities[a]
-            )
+            if self.epsilon > 0 and random.random() < self.epsilon:
+                action = random.choice(list(action_probabilities.keys()))
+            else:
+                action = max(
+                    action_probabilities.keys(), key=lambda a: action_probabilities[a]
+                )
             next_node = self.root.children[action]
             current_node = self.root
             self.root = next_node
