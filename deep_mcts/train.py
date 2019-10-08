@@ -6,9 +6,35 @@ from deep_mcts.game import State, Action, GameManager
 from deep_mcts.gamenet import GameNet
 from deep_mcts.mcts import MCTS, GreedyMCTSAgent
 from deep_mcts.tournament import tournament, RandomAgent
+from torch import multiprocessing
+import queue
 
 _S = TypeVar("_S", bound=State)
 _A = TypeVar("_A", bound=Action)
+
+
+def create_self_play_examples(
+    process_number: int,
+    game_net: GameNet[_S, _A],
+    game_manager: GameManager[_S, _A],
+    num_games: int,
+    num_simulations: int,
+    rollout_policy: Optional[Callable[[_S], _A]],
+    examples_queue: "multiprocessing.Queue[Tuple[_S, Dict[_A, float], float]]",
+) -> None:
+    for i in range(num_games):
+        mcts = MCTS(
+            game_manager,
+            num_simulations,
+            rollout_policy,
+            state_evaluator=game_net.evaluate_state,
+        )
+        examples = []
+        for state, next_state, action, visit_distribution in mcts.self_play():
+            examples.append((state, visit_distribution))
+        outcome = game_manager.evaluate_final_state(next_state)
+        for state, visit_distribution in examples:
+            examples_queue.put((state, visit_distribution, outcome))
 
 
 def train(
@@ -19,7 +45,9 @@ def train(
     save_interval: int,
     evaluation_interval: int,
     rollout_policy: Optional[Callable[[_S], _A]] = None,
-) -> Iterable[Tuple[int, Tuple[float, float, float], Optional[Tuple[float, float, float]]]]:
+) -> Iterable[
+    Tuple[int, Tuple[float, float, float], Optional[Tuple[float, float, float]]]
+]:
     replay_buffer = Deque[Tuple[_S, Dict[_A, float], float]]([], 100_000)
     game_net.save(f"anet-0.pth")
     random_opponent = RandomAgent(game_manager)
@@ -36,22 +64,31 @@ def train(
     )
     previous_agent: Optional[GreedyMCTSAgent[_S, _A]] = None
     now = time.time()
-    for i in range(num_games):
-        mcts = MCTS(
+    example_queue: "multiprocessing.Queue[Tuple[_S, Dict[_A, float], float]]" = multiprocessing.Queue()
+    game_net.net.share_memory()
+    spawn_context = multiprocessing.spawn(
+        create_self_play_examples,
+        (
+            game_net,
             game_manager,
+            num_games,
             num_simulations,
             rollout_policy,
-            state_evaluator=game_net.evaluate_state,
-        )
-        examples = []
-        for state, next_state, action, visit_distribution in mcts.self_play():
-            examples.append((state, visit_distribution))
-        outcome = game_manager.evaluate_final_state(next_state)
-        for state, visit_distribution in examples:
-            # We want the target value to be from the perspective of the current player in that state
-            replay_buffer.append(
-                (state, visit_distribution, outcome if state.player == 0 else -outcome)
-            )
+            example_queue,
+        ),
+        nprocs=1,
+        join=False,
+    )
+    i = 0
+    while not spawn_context.join(0):
+        while True:
+            try:
+                block = not replay_buffer
+                replay_buffer.append(example_queue.get(block, timeout=1))
+            except queue.Empty:
+                if block and not spawn_context.join(0):
+                    continue
+                break
         examples = random.sample(replay_buffer, min(512, len(replay_buffer)))
         game_net.train(examples)
         if evaluation_interval != 0 and (i + 1) % evaluation_interval == 0:
@@ -95,3 +132,4 @@ def train(
             filepath = f"saves/anet-{i + 1}.pth"
             game_net.save(filepath)
             print(f"Saved {filepath}")
+        i += 1
