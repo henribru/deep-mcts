@@ -34,7 +34,7 @@ def create_self_play_examples(
             examples.append((state, visit_distribution))
         outcome = game_manager.evaluate_final_state(next_state)
         for state, visit_distribution in examples:
-            examples_queue.put((state, visit_distribution, outcome))
+            examples_queue.put((state, visit_distribution, outcome if state.player == 0 else -outcome))
 
 
 def train(
