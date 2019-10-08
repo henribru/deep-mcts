@@ -100,13 +100,34 @@ def train(
             )
             agent = GreedyMCTSAgent(mcts, epsilon)
             random_evaluation = tournament(
-                [random_opponent, GreedyMCTSAgent(mcts)], 50, game_manager
+                [random_opponent, GreedyMCTSAgent(mcts)], 20, game_manager
             )[1][0]
-            original_evaluation = tournament([original_agent, agent], 50, game_manager)[
+            random_mcts_evaluation = tournament(
+                [
+                    GreedyMCTSAgent(
+                        MCTS(
+                            game_manager,
+                            100,
+                            lambda s: random.choice(game_manager.legal_actions(s)),
+                            lambda s: (
+                                0,
+                                {
+                                    a: 1 / len(game_manager.legal_actions(s))
+                                    for a in game_manager.legal_actions(s)
+                                },
+                            ),
+                        )
+                    ),
+                    GreedyMCTSAgent(mcts),
+                ],
+                20,
+                game_manager,
+            )[1][0]
+            original_evaluation = tournament([original_agent, agent], 20, game_manager)[
                 1
             ][0]
             previous_evaluation = (
-                tournament([previous_agent, agent], 50, game_manager)[1][0]
+                tournament([previous_agent, agent], 20, game_manager)[1][0]
                 if previous_agent is not None
                 else None
             )
@@ -125,6 +146,7 @@ def train(
                 random_evaluation,
                 previous_evaluation,
                 original_evaluation,
+                random_mcts_evaluation,
             )
             now = time.time()
             yield i + 1, random_evaluation, previous_evaluation
