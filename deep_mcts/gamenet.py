@@ -117,6 +117,8 @@ class GameNet(ABC, Generic[_S, _A]):
         #  assert torch.allclose(
         #      torch.sum(output, dim=tuple(range(1, output.dim()))), torch.Tensor([1.0])
         #  )
+        assert probabilities.shape == probability_targets.shape
+        assert values.shape == value_targets.shape
         loss = self.policy_criterion(  # type: ignore
             probabilities, probability_targets
         ) + self.value_criterion(  # type: ignore

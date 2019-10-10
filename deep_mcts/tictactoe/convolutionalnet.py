@@ -130,9 +130,9 @@ class ConvolutionalTicTacToeModule(nn.Module):  # type: ignore
         for residual_block in self.residual_blocks:  # type: ignore
             x = residual_block(x)
         value, probabilities = self.value_head(x), self.policy_head(x)
+        probabilities = probabilities.squeeze(1)
         assert probabilities.shape == (
             input.shape[0],
-            1,
             input.shape[2],
             input.shape[3],
         )
@@ -153,7 +153,6 @@ class ConvolutionalTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
         self, states: Sequence[TicTacToeState], output: torch.Tensor
     ) -> torch.Tensor:
         states = np.stack([state.grid for state in states], axis=0)
-        states = states[:, np.newaxis, ...]
         legal_moves = torch.as_tensor(states == -1, dtype=torch.float32, device=DEVICE)
         assert legal_moves.shape == output.shape
         result = output * legal_moves
@@ -162,7 +161,7 @@ class ConvolutionalTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
 
     def sampling_policy(self, state: TicTacToeState) -> TicTacToeAction:
         _, action_probabilities = self.forward(state)
-        action_probabilities = action_probabilities[0, 0, :, :]
+        action_probabilities = action_probabilities[0, :, :]
         assert action_probabilities.shape == (3, 3)
         action = np.random.choice(
             action_probabilities.size, p=action_probabilities.flatten()
@@ -180,7 +179,7 @@ class ConvolutionalTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
             if p < epsilon:
                 return random.choice(self.manager.legal_actions(state))
         _, action_probabilities = self.forward(state)
-        action_probabilities = action_probabilities[0, 0, :, :]
+        action_probabilities = action_probabilities[0, :, :]
         assert action_probabilities.shape == (3, 3)
         y, x = np.unravel_index(
             np.argmax(action_probabilities), action_probabilities.shape
@@ -195,7 +194,7 @@ class ConvolutionalTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
     ) -> Tuple[float, Dict[TicTacToeAction, float]]:
         value, probabilities = self.forward(state)
         actions = {
-            TicTacToeAction((x, y)): probabilities[0, 0, y, x]
+            TicTacToeAction((x, y)): probabilities[0, y, x]
             for y in range(3)
             for x in range(3)
         }
