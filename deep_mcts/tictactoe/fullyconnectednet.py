@@ -86,7 +86,7 @@ class FullyConnectedTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
         }
         return value, actions
 
-    def _state_to_tensor(self, state: TicTacToeState) -> torch.Tensor:
+    def state_to_tensor(self, state: TicTacToeState) -> torch.Tensor:
         # grid = state.grid
         # tensor = [0] * (3 ** 2 * 2 + 1)
         # tensor[-1] = state.player
@@ -98,9 +98,9 @@ class FullyConnectedTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
         # tensor = torch.tensor(tensor).reshape(1, -1)
         # assert tensor.shape == (1, 2 * 3 ** 2 + 1)
         # return tensor
-        return self._states_to_tensor([state])
+        return self.states_to_tensor([state])
 
-    def _states_to_tensor(self, states: Sequence[TicTacToeState]) -> torch.Tensor:
+    def states_to_tensor(self, states: Sequence[TicTacToeState]) -> torch.Tensor:
         players = np.array([state.player for state in states]).reshape(
             (len(states), -1)
         )
@@ -133,7 +133,7 @@ class FullyConnectedTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
         # assert tensor.shape == (len(grids), 2 * 3 ** 2 + 1)
         # return tensor
 
-    def _distributions_to_tensor(
+    def distributions_to_tensor(
         self,
         states: Sequence[TicTacToeState],
         distributions: Sequence[Mapping[TicTacToeAction, float]],

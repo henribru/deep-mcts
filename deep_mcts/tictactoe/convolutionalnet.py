@@ -203,10 +203,10 @@ class ConvolutionalTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
         ) == set(self.manager.legal_actions(state))
         return value, actions
 
-    def _state_to_tensor(self, state: TicTacToeState) -> torch.Tensor:
-        return self._states_to_tensor([state])
+    def state_to_tensor(self, state: TicTacToeState) -> torch.Tensor:
+        return self.states_to_tensor([state])
 
-    def _states_to_tensor(self, states: Sequence[TicTacToeState]) -> torch.Tensor:
+    def states_to_tensor(self, states: Sequence[TicTacToeState]) -> torch.Tensor:
         players = np.array(
             [np.full(shape=(3, 3), fill_value=state.player) for state in states]
         )
@@ -225,7 +225,7 @@ class ConvolutionalTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
         assert tensor.shape == (len(states), 3, 3, 3)
         return tensor
 
-    def _distributions_to_tensor(
+    def distributions_to_tensor(
         self,
         states: Sequence[TicTacToeState],
         distributions: Sequence[Mapping[TicTacToeAction, float]],

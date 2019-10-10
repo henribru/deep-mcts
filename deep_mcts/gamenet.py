@@ -8,9 +8,9 @@ import torch.nn.functional as F
 
 from deep_mcts.mcts import Action, State
 
-# DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 from deep_mcts.tournament import Agent
 
+# DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 DEVICE = torch.device("cpu")
 
 
@@ -46,7 +46,7 @@ class GameNet(ABC, Generic[_S, _A]):
         self.value_criterion = nn.MSELoss().to(DEVICE)  # type: ignore
 
     def forward(self, state: _S) -> Tuple[float, np.ndarray]:
-        states = self._state_to_tensor(state)
+        states = self.state_to_tensor(state)
         value, probabilities = self.net.forward(states.float())
         value = torch.tanh(value)
         # The output value is from the perspective of the current player,
@@ -87,17 +87,8 @@ class GameNet(ABC, Generic[_S, _A]):
     def evaluate_state(self, state: _S) -> Tuple[float, Dict[_A, float]]:
         ...
 
-    def train(self, examples: Sequence[Tuple[_S, Mapping[_A, float], float]]) -> None:
+    def train(self, states, probability_targets, value_targets) -> None:
         self.optimizer.zero_grad()
-        states, probability_targets, value_targets = zip(*examples)
-        value_targets = torch.tensor(
-            value_targets, dtype=torch.float32, device=DEVICE
-        ).reshape((-1, 1))
-        assert value_targets.shape[0] == len(examples)
-        probability_targets = self._distributions_to_tensor(states, probability_targets)
-        assert probability_targets.shape[0] == len(examples)
-        states = self._states_to_tensor(states)
-        assert states.shape[0] == len(examples)
         values, probabilities = self.net.forward(states.float())
         values = torch.tanh(values)
         assert probabilities.shape[0] == states.shape[0]
@@ -135,15 +126,15 @@ class GameNet(ABC, Generic[_S, _A]):
         self.net.load_state_dict(torch.load(path))
 
     @abstractmethod
-    def _state_to_tensor(self, state: _S) -> torch.Tensor:
+    def state_to_tensor(self, state: _S) -> torch.Tensor:
         ...
 
     @abstractmethod
-    def _states_to_tensor(self, states: Sequence[_S]) -> torch.Tensor:
+    def states_to_tensor(self, states: Sequence[_S]) -> torch.Tensor:
         ...
 
     @abstractmethod
-    def _distributions_to_tensor(
+    def distributions_to_tensor(
         self, states: Sequence[_S], distributions: Sequence[Mapping[_A, float]]
     ) -> torch.Tensor:
         ...

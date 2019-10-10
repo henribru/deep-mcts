@@ -211,10 +211,10 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
         ) == set(self.hex_manager.legal_actions(state))
         return value, actions
 
-    def _state_to_tensor(self, state: HexState) -> torch.Tensor:
-        return self._states_to_tensor([state])
+    def state_to_tensor(self, state: HexState) -> torch.Tensor:
+        return self.states_to_tensor([state])
 
-    def _states_to_tensor(self, states: Sequence[HexState]) -> torch.Tensor:
+    def states_to_tensor(self, states: Sequence[HexState]) -> torch.Tensor:
         players = np.array(
             [
                 np.full(shape=(self.grid_size, self.grid_size), fill_value=state.player)
@@ -245,7 +245,7 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
         assert tensor.shape == (len(states), 3, self.grid_size, self.grid_size)
         return tensor
 
-    def _distributions_to_tensor(
+    def distributions_to_tensor(
         self,
         states: Sequence[HexState],
         distributions: Sequence[Mapping[HexAction, float]],
