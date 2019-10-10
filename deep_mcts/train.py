@@ -64,8 +64,8 @@ def train(
     )
     previous_agent: Optional[GreedyMCTSAgent[_S, _A]] = None
     now = time.time()
+    multiprocessing.set_start_method("spawn")
     example_queue: "multiprocessing.Queue[Tuple[_S, Dict[_A, float], float]]" = multiprocessing.Queue()
-    game_net.net.share_memory()
     spawn_context = multiprocessing.spawn(
         create_self_play_examples,
         (
