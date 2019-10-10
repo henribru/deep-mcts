@@ -1,16 +1,56 @@
+import multiprocessing
+import queue
 import random
 import time
-from typing import Iterable, Tuple, Optional, TypeVar, Callable, Deque, Dict
+from collections import deque
+from typing import Callable, Deque, Dict, Iterable, Optional, Tuple, TypeVar
 
-from deep_mcts.game import State, Action, GameManager
+import torch.multiprocessing
+from torch.utils.data.dataloader import DataLoader
+from torch.utils.data.dataset import IterableDataset
+
+from deep_mcts.game import Action, GameManager, State
 from deep_mcts.gamenet import GameNet
 from deep_mcts.mcts import MCTS, GreedyMCTSAgent
-from deep_mcts.tournament import tournament, RandomAgent
-from torch import multiprocessing
-import queue
+from deep_mcts.tournament import RandomAgent, tournament
 
 _S = TypeVar("_S", bound=State)
 _A = TypeVar("_A", bound=Action)
+
+
+class Dataset(IterableDataset):
+    def __init__(self, example_queue, spawn_context, anet, batch_size):
+        self.example_queue = example_queue
+        self.replay_buffer = deque()
+        self.spawn_context = spawn_context
+        self.anet = anet
+        self.batch_size = batch_size
+
+    def __iter__(self):
+        while True:
+            while True:
+                try:
+                    state, action_distribution, outcome = self.example_queue.get(False)
+                except queue.Empty:
+                    break
+                value_target = torch.tensor([outcome], dtype=torch.float32).reshape(
+                    (-1, 1)
+                )
+                probability_target = self.anet._distributions_to_tensor(
+                    [state], [action_distribution]
+                )[0]
+                state = self.anet._state_to_tensor(state)[0]
+                self.replay_buffer.append((state, probability_target, value_target))
+            batch_size = min(self.batch_size, len(self.replay_buffer))
+            batch = random.sample(self.replay_buffer, batch_size)
+            states, probability_targets, value_targets = zip(*batch)
+            states = torch.stack(states)
+            probability_targets = torch.stack(probability_targets)
+            value_targets = torch.cat(value_targets)
+            assert value_targets.shape == (batch_size, 1)
+            assert probability_targets.shape[0] == batch_size
+            assert states.shape[0] == batch_size
+            yield states, probability_targets, value_targets
 
 
 def create_self_play_examples(
@@ -34,7 +74,9 @@ def create_self_play_examples(
             examples.append((state, visit_distribution))
         outcome = game_manager.evaluate_final_state(next_state)
         for state, visit_distribution in examples:
-            examples_queue.put((state, visit_distribution, outcome if state.player == 0 else -outcome))
+            examples_queue.put(
+                (state, visit_distribution, outcome if state.player == 0 else -outcome)
+            )
 
 
 def train(
@@ -49,7 +91,7 @@ def train(
     Tuple[int, Tuple[float, float, float], Optional[Tuple[float, float, float]]]
 ]:
     replay_buffer = Deque[Tuple[_S, Dict[_A, float], float]]([], 100_000)
-    game_net.save(f"anet-0.pth")
+    game_net.save(f"saves/anet-0.pth")
     random_opponent = RandomAgent(game_manager)
     original_opponent = game_net.copy()
     epsilon = 0.1
@@ -63,10 +105,10 @@ def train(
         epsilon,
     )
     previous_agent: Optional[GreedyMCTSAgent[_S, _A]] = None
-    now = time.time()
+    multiprocessing.set_start_method("spawn")
     example_queue: "multiprocessing.Queue[Tuple[_S, Dict[_A, float], float]]" = multiprocessing.Queue()
-    game_net.net.share_memory()
-    spawn_context = multiprocessing.spawn(
+    # game_net.net.share_memory()
+    spawn_context = torch.multiprocessing.spawn(
         create_self_play_examples,
         (
             game_net,
@@ -80,17 +122,18 @@ def train(
         join=False,
     )
     i = 0
-    while not spawn_context.join(0):
-        while True:
-            try:
-                block = not replay_buffer
-                replay_buffer.append(example_queue.get(block, timeout=1))
-            except queue.Empty:
-                if block and not spawn_context.join(0):
-                    continue
-                break
-        examples = random.sample(replay_buffer, min(512, len(replay_buffer)))
-        game_net.train(examples)
+    while example_queue.empty():
+        spawn_context.join(0)
+    prev_evaluation_time = time.time()
+    prev_train_time = time.time()
+    for states, probability_targets, value_targets in DataLoader(
+        Dataset(example_queue, spawn_context, game_net, 512),
+        batch_size=None,
+        num_workers=1,
+    ):
+        game_net.train(states, probability_targets, value_targets)
+        print(i + 1, time.time() - prev_train_time)
+        prev_train_time = time.time()
         if evaluation_interval != 0 and (i + 1) % evaluation_interval == 0:
             mcts = MCTS(
                 game_manager,
@@ -142,16 +185,18 @@ def train(
             )
             print(
                 i + 1,
-                time.time() - now,
+                time.time() - prev_evaluation_time,
                 random_evaluation,
                 previous_evaluation,
                 original_evaluation,
                 random_mcts_evaluation,
             )
-            now = time.time()
+            prev_evaluation_time = time.time()
             yield i + 1, random_evaluation, previous_evaluation
         if save_interval != 0 and (i + 1) % save_interval == 0:
             filepath = f"saves/anet-{i + 1}.pth"
             game_net.save(filepath)
             print(f"Saved {filepath}")
         i += 1
+        if spawn_context.join(0):
+            break

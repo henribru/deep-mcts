@@ -130,12 +130,8 @@ class ConvolutionalHexModule(nn.Module):  # type: ignore
         for residual_block in self.residual_blocks:  # type: ignore
             x = residual_block(x)
         value, probabilities = self.value_head(x), self.policy_head(x)
-        assert probabilities.shape == (
-            input.shape[0],
-            1,
-            input.shape[2],
-            input.shape[3],
-        )
+        probabilities = probabilities.squeeze(1)
+        assert probabilities.shape == (input.shape[0], input.shape[2], input.shape[3])
         assert value.shape == (input.shape[0], 1)
         return value, probabilities
 
@@ -163,7 +159,6 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
             ],
             axis=0,
         )
-        states = states[:, np.newaxis, ...]
         legal_moves = torch.as_tensor(states == -1, dtype=torch.float32, device=DEVICE)
         assert legal_moves.shape == output.shape
         result = output * legal_moves
@@ -174,12 +169,12 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
     def forward(self, state: HexState) -> Tuple[float, np.ndarray]:
         value, action_probabilities = super().forward(state)
         if state.player == 0:
-            action_probabilities = np.swapaxes(action_probabilities, 2, 3)
+            action_probabilities = np.swapaxes(action_probabilities, 1, 2)
         return value, action_probabilities
 
     def sampling_policy(self, state: HexState) -> HexAction:
         _, action_probabilities = self.forward(state)
-        action_probabilities = action_probabilities[0, 0, :, :]
+        action_probabilities = action_probabilities[0, :, :]
         assert action_probabilities.shape == (self.grid_size, self.grid_size)
         action = np.random.choice(
             action_probabilities.size, p=action_probabilities.flatten()
@@ -195,7 +190,7 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
             if p < epsilon:
                 return random.choice(self.hex_manager.legal_actions(state))
         _, action_probabilities = self.forward(state)
-        action_probabilities = action_probabilities[0, 0, :, :]
+        action_probabilities = action_probabilities[0, :, :]
         assert action_probabilities.shape == (self.grid_size, self.grid_size)
         y, x = np.unravel_index(
             np.argmax(action_probabilities), action_probabilities.shape
@@ -207,7 +202,7 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
     def evaluate_state(self, state: HexState) -> Tuple[float, Dict[HexAction, float]]:
         value, probabilities = self.forward(state)
         actions = {
-            HexAction((x, y)): probabilities[0, 0, y, x]
+            HexAction((x, y)): probabilities[0, y, x]
             for y in range(self.grid_size)
             for x in range(self.grid_size)
         }

@@ -87,17 +87,8 @@ class GameNet(ABC, Generic[_S, _A]):
     def evaluate_state(self, state: _S) -> Tuple[float, Dict[_A, float]]:
         ...
 
-    def train(self, examples: Sequence[Tuple[_S, Mapping[_A, float], float]]) -> None:
+    def train(self, states, probability_targets, value_targets) -> None:
         self.optimizer.zero_grad()
-        states, probability_targets, value_targets = zip(*examples)
-        value_targets = torch.tensor(
-            value_targets, dtype=torch.float32, device=DEVICE
-        ).reshape((-1, 1))
-        assert value_targets.shape[0] == len(examples)
-        probability_targets = self._distributions_to_tensor(states, probability_targets)
-        assert probability_targets.shape[0] == len(examples)
-        states = self._states_to_tensor(states)
-        assert states.shape[0] == len(examples)
         values, probabilities = self.net.forward(states.float())
         values = torch.tanh(values)
         assert probabilities.shape[0] == states.shape[0]
@@ -117,6 +108,8 @@ class GameNet(ABC, Generic[_S, _A]):
         #  assert torch.allclose(
         #      torch.sum(output, dim=tuple(range(1, output.dim()))), torch.Tensor([1.0])
         #  )
+        assert probabilities.shape == probability_targets.shape
+        assert values.shape == value_targets.shape
         loss = self.policy_criterion(  # type: ignore
             probabilities, probability_targets
         ) + self.value_criterion(  # type: ignore
