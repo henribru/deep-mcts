@@ -36,38 +36,37 @@ class RandomAgent(Agent[_S, _A]):
 def tournament(
     agents: Sequence[Agent[_S, _A]], num_games: int, game_manager: GameManager[_S, _A]
 ) -> List[List[Tuple[float, float, float]]]:
-    results = [[[0, 0, 0] for _ in range(len(agents))] for _ in range(len(agents))]
+    results = [
+        [(0.0, 0.0, 0.0) for _ in range(len(agents))] for _ in range(len(agents))
+    ]
     for (i, agent_1), (j, agent_2) in itertools.combinations(enumerate(agents), 2):
-        for k in range(num_games):
-            if k % 2 == 0:
-                players = (agent_1, agent_2)
-                result = compare_agents(players, game_manager)
-                if result == 1:
-                    results[i][j][0] += 1
-                    results[j][i][2] += 1
-                elif result == -1:
-                    results[j][i][0] += 1
-                    results[i][j][2] += 1
-                else:
-                    results[i][j][1] += 1
-                    results[j][i][1] += 1
-            else:
-                players = (agent_2, agent_1)
-                result = compare_agents(players, game_manager)
-                if result == 1:
-                    results[j][i][0] += 1
-                    results[i][j][2] += 1
-                elif result == -1:
-                    results[i][j][0] += 1
-                    results[j][i][2] += 1
-                else:
-                    results[i][j][1] += 1
-                    results[j][i][1] += 1
-    results = [[(w / num_games, d / num_games, l / num_games) for w, d, l in row] for row in results]
+        result = compare_agents((agent_1, agent_2), num_games, game_manager)
+        results[i][j] = result
+        results[j][i] = (result[2], result[1], result[0])
     return results
 
 
 def compare_agents(
+    players: Tuple[Agent[_S, _A], Agent[_S, _A]],
+    num_games: int,
+    game_manager: GameManager[_S, _A],
+) -> Tuple[float, float, float]:
+    results = [0, 0, 0]
+    for k in range(num_games):
+        if k % 2 == 0:
+            result = play(players, game_manager)
+        else:
+            result = -play((players[1], players[0]), game_manager)
+        if result == 1:
+            results[0] += 1
+        elif result == -1:
+            results[2] += 1
+        else:
+            results[1] += 1
+    return (results[0] / num_games, results[1] / num_games, results[2] / num_games)
+
+
+def play(
     players: Tuple[Agent[_S, _A], Agent[_S, _A]], game_manager: GameManager[_S, _A]
 ) -> int:
     state = game_manager.initial_game_state()
