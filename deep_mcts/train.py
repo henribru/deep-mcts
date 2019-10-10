@@ -1,6 +1,6 @@
 import random
 import time
-from typing import Iterable, Tuple, Optional, TypeVar, Callable, Deque, Dict
+from typing import Iterable, Tuple, Optional, TypeVar, Callable, Deque, Dict, List
 
 from deep_mcts.game import State, Action, GameManager
 from deep_mcts.gamenet import GameNet
@@ -20,7 +20,7 @@ def create_self_play_examples(
     num_games: int,
     num_simulations: int,
     rollout_policy: Optional[Callable[[_S], _A]],
-    examples_queue: "multiprocessing.Queue[Tuple[_S, Dict[_A, float], float]]",
+    games_queue: "multiprocessing.Queue[List[Tuple[_S, Dict[_A, float], float]]]",
 ) -> None:
     for i in range(num_games):
         mcts = MCTS(
@@ -33,8 +33,7 @@ def create_self_play_examples(
         for state, next_state, action, visit_distribution in mcts.self_play():
             examples.append((state, visit_distribution))
         outcome = game_manager.evaluate_final_state(next_state)
-        for state, visit_distribution in examples:
-            examples_queue.put((state, visit_distribution, outcome if state.player == 0 else -outcome))
+        games_queue.put([(state, visit_distribution, outcome if state.player == 0 else -outcome) for state, visit_distribution in examples])
 
 
 def train(
@@ -65,7 +64,7 @@ def train(
     previous_agent: Optional[GreedyMCTSAgent[_S, _A]] = None
     now = time.time()
     multiprocessing.set_start_method("spawn")
-    example_queue: "multiprocessing.Queue[Tuple[_S, Dict[_A, float], float]]" = multiprocessing.Queue()
+    games_queue: "multiprocessing.Queue[List[Tuple[_S, Dict[_A, float], float]]]" = multiprocessing.Queue()
     spawn_context = multiprocessing.spawn(
         create_self_play_examples,
         (
@@ -74,7 +73,7 @@ def train(
             num_games,
             num_simulations,
             rollout_policy,
-            example_queue,
+            games_queue,
         ),
         nprocs=1,
         join=False,
@@ -84,7 +83,7 @@ def train(
         while True:
             try:
                 block = not replay_buffer
-                replay_buffer.append(example_queue.get(block, timeout=1))
+                replay_buffer.extend(games_queue.get(block, timeout=1))
             except queue.Empty:
                 if block and not spawn_context.join(0):
                     continue
