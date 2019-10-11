@@ -131,13 +131,7 @@ def train(
                             game_manager,
                             100,
                             lambda s: random.choice(game_manager.legal_actions(s)),
-                            lambda s: (
-                                0,
-                                {
-                                    a: 1 / len(game_manager.legal_actions(s))
-                                    for a in game_manager.legal_actions(s)
-                                },
-                            ),
+                            None,
                         )
                     ),
                     GreedyMCTSAgent(mcts),
