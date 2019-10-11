@@ -1,6 +1,8 @@
 import random
+import string
+
 from dataclasses import dataclass
-from typing import Dict, Tuple, List, Sequence, Iterable, MutableSet, Optional
+from typing import Dict, Tuple, List, Iterable, MutableSet, Optional
 
 from deep_mcts.mcts import State, Action, GameManager, MCTS
 
@@ -8,6 +10,41 @@ from deep_mcts.mcts import State, Action, GameManager, MCTS
 @dataclass(frozen=True)
 class HexState(State):
     grid: List[List[int]]
+
+    def __str__(self):
+        symbol = {-1: "#", 0: "0", 1: "1"}
+        grid = []
+        letters = string.ascii_uppercase[:len(self.grid)]
+        width = 2 * len(self.grid) - 1 + 4
+        # if len(self.grid) > 9:
+        #     width += 1
+        grid.append(f"{letters[-1]} {1}".center(width))
+        for i in range(len(self.grid) - 1):
+            tiles = " ".join(symbol[self.grid[i - x][x]] for x in range(i + 1))
+            grid.append(
+                f"{letters[-2 - i]} {tiles} {i + 2}".center(width)
+            )
+            # grid.append(tiles.center(2 * len(self.grid) - 1))
+        for i in range(len(self.grid)):
+            tiles = " ".join(
+                    symbol[self.grid[len(self.grid) - 1 + i - x][x]] for x in range(i, len(self.grid))
+                )
+            if i == 0:
+                grid.append(
+                    f"  {tiles}  ".center(width)
+                )
+            else:
+                row = f"{i} {tiles} {letters[-i]}".center(width)
+                if i > 9:
+                    row = row[1:]
+                grid.append(
+                    row
+                )
+        row = f"{len(self.grid)} A".center(width)
+        if len(self.grid) > 9:
+            row = row[1:]
+        grid.append(row)
+        return "\n".join(grid)
 
 
 @dataclass(frozen=True)
@@ -138,30 +175,10 @@ def hex_simulator(grid_size: int, num_simulations: int) -> None:
     )
     for state, next_state, action, _ in mcts.self_play():
         print(action.coordinate)
-        print_hex_grid(state.grid)
+        print(state)
         print("-" * 5)
-    print_hex_grid(next_state.grid)
+    print(next_state)
     print(state.player)
-
-
-def print_hex_grid(grid: Sequence[Sequence[int]]) -> None:
-    symbol = {-1: "#", 0: "0", 1: "1"}
-    for i in range(len(grid) - 1):
-        print(
-            format(
-                " ".join(symbol[grid[i - x][x]] for x in range(i + 1)),
-                f"^{2 * len(grid) - 1}",
-            )
-        )
-    for i in range(len(grid)):
-        print(
-            format(
-                " ".join(
-                    symbol[grid[len(grid) - 1 + i - x][x]] for x in range(i, len(grid))
-                ),
-                f"^{2 * len(grid) - 1}",
-            )
-        )
 
 
 if __name__ == "__main__":
