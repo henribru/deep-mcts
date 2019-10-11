@@ -51,7 +51,7 @@ def train(
     Tuple[int, Tuple[float, float, float], Optional[Tuple[float, float, float]]]
 ]:
     replay_buffer = Deque[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]([], 100_000)
-    game_net.save(f"anet-0.pth")
+    game_net.save(f"saves/anet-0.pth")
     random_opponent = RandomAgent(game_manager)
     original_opponent = game_net.copy()
     epsilon = 0.1
