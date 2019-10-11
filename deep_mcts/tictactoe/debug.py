@@ -53,4 +53,3 @@ if __name__ == "__main__":
     # value, probabilities = net.evaluate_state(state)
     # print(value)
     # print_probabilities_grid(probabilities)
-

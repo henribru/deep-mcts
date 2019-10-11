@@ -131,11 +131,7 @@ class ConvolutionalTicTacToeModule(nn.Module):  # type: ignore
             x = residual_block(x)
         value, probabilities = self.value_head(x), self.policy_head(x)
         probabilities = probabilities.squeeze(1)
-        assert probabilities.shape == (
-            input.shape[0],
-            input.shape[2],
-            input.shape[3],
-        )
+        assert probabilities.shape == (input.shape[0], input.shape[2], input.shape[3])
         assert value.shape == (input.shape[0], 1)
         return value, probabilities
 

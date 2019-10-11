@@ -199,7 +199,10 @@ class GreedyMCTSAgent(MCTSAgent[_S, _A]):
 class SamplingMCTSAgent(MCTSAgent[_S, _A]):
     def strategy(self, action_probabilities: Dict[_A, float]) -> _A:
         return list(action_probabilities.keys())[
-            typing.cast(int, np.random.choice(
-                len(action_probabilities), p=list(action_probabilities.values())
-            ))
+            typing.cast(
+                int,
+                np.random.choice(
+                    len(action_probabilities), p=list(action_probabilities.values())
+                ),
+            )
         ]

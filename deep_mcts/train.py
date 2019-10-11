@@ -35,6 +35,12 @@ def create_self_play_examples(
         for state, next_state, action, visit_distribution in mcts.self_play():
             examples.append((state, visit_distribution))
         outcome = game_manager.evaluate_final_state(next_state)
+        games_queue.put(
+            [
+                (state, visit_distribution, outcome if state.player == 0 else -outcome)
+                for state, visit_distribution in examples
+            ]
+        )
         if i % 100 == 0:
             print(process_number, i)
 
