@@ -220,7 +220,7 @@ class ConvolutionalTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
         ).reshape((-1, 1, 1))
         #  assert np.all((first_player.sum(axis=1) - second_player.sum(axis=1)) <= 1)
         tensor = torch.as_tensor(
-            np.stack((current_player, other_player, players), axis=1), device=DEVICE
+            np.stack((current_player, other_player, players), axis=1)
         )
         assert tensor.shape == (len(states), 3, 3, 3)
         return tensor
@@ -235,7 +235,7 @@ class ConvolutionalTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
             for action, probability in distribution.items():
                 x, y = action.coordinate
                 targets[i][y][x] = probability
-        targets = torch.as_tensor(targets, device=DEVICE)
+        targets = torch.as_tensor(targets)
         assert targets.shape == (len(distributions), 3, 3)
         return targets
 

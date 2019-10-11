@@ -46,7 +46,7 @@ class GameNet(ABC, Generic[_S, _A]):
         self.value_criterion = nn.MSELoss().to(DEVICE)  # type: ignore
 
     def forward(self, state: _S) -> Tuple[float, np.ndarray]:
-        states = self.state_to_tensor(state)
+        states = self.state_to_tensor(state).to(DEVICE)
         value, probabilities = self.net.forward(states.float())
         value = torch.tanh(value)
         # The output value is from the perspective of the current player,

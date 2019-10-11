@@ -240,7 +240,7 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
         ).reshape((-1, 1, 1))
         #  assert np.all((first_player.sum(axis=1) - second_player.sum(axis=1)) <= 1)
         tensor = torch.as_tensor(
-            np.stack((current_player, other_player, players), axis=1), device=DEVICE
+            np.stack((current_player, other_player, players), axis=1)
         )
         assert tensor.shape == (len(states), 3, self.grid_size, self.grid_size)
         return tensor
@@ -260,7 +260,7 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
             # Since we flip the board for player 0, we also need to flip the targets
             if state.player == 0:
                 targets[i] = targets[i].T
-        targets = torch.as_tensor(targets, device=DEVICE)
+        targets = torch.as_tensor(targets)
         assert targets.shape == (len(distributions), self.grid_size, self.grid_size)
         return targets
 

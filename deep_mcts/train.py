@@ -93,21 +93,25 @@ def train(
                 break
         if new_examples:
             states, probability_targets, value_targets = zip(*new_examples)
-            value_targets = torch.tensor(
-                value_targets, dtype=torch.float32, device=DEVICE
-            ).reshape((-1, 1))
+            value_targets = torch.tensor(value_targets, dtype=torch.float32).reshape(
+                (-1, 1)
+            )
             assert value_targets.shape[0] == len(new_examples)
-            probability_targets = game_net.distributions_to_tensor(states, probability_targets)
+            probability_targets = game_net.distributions_to_tensor(
+                states, probability_targets
+            )
             assert probability_targets.shape[0] == len(new_examples)
             states = game_net.states_to_tensor(states)
             assert states.shape[0] == len(new_examples)
             for j in range(len(new_examples)):
-                replay_buffer.append((states[j], probability_targets[j], value_targets[j]))
+                replay_buffer.append(
+                    (states[j], probability_targets[j], value_targets[j])
+                )
         examples = random.sample(replay_buffer, min(512, len(replay_buffer)))
         states, probability_targets, value_targets = zip(*examples)
-        states = torch.stack(states)
-        probability_targets = torch.stack(probability_targets)
-        value_targets = torch.stack(value_targets)
+        states = torch.stack(states).to(DEVICE)
+        probability_targets = torch.stack(probability_targets).to(DEVICE)
+        value_targets = torch.stack(value_targets).to(DEVICE)
         game_net.train(states, probability_targets, value_targets)
         if evaluation_interval != 0 and (i + 1) % evaluation_interval == 0:
             mcts = MCTS(
