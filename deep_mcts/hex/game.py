@@ -12,34 +12,29 @@ class HexState(State):
     grid: List[List[int]]
 
     def __str__(self):
-        symbol = {-1: "#", 0: "0", 1: "1"}
+        symbol = {-1: ".", 0: "0", 1: "1"}
         grid = []
-        letters = string.ascii_uppercase[:len(self.grid)]
+        letters = string.ascii_uppercase[: len(self.grid)]
         width = 2 * len(self.grid) - 1 + 4
         # if len(self.grid) > 9:
         #     width += 1
         grid.append(f"{letters[-1]} {1}".center(width))
         for i in range(len(self.grid) - 1):
             tiles = " ".join(symbol[self.grid[i - x][x]] for x in range(i + 1))
-            grid.append(
-                f"{letters[-2 - i]} {tiles} {i + 2}".center(width)
-            )
+            grid.append(f"{letters[-2 - i]} {tiles} {i + 2}".center(width))
             # grid.append(tiles.center(2 * len(self.grid) - 1))
         for i in range(len(self.grid)):
             tiles = " ".join(
-                    symbol[self.grid[len(self.grid) - 1 + i - x][x]] for x in range(i, len(self.grid))
-                )
+                symbol[self.grid[len(self.grid) - 1 + i - x][x]]
+                for x in range(i, len(self.grid))
+            )
             if i == 0:
-                grid.append(
-                    f"  {tiles}  ".center(width)
-                )
+                grid.append(f"  {tiles}  ".center(width))
             else:
                 row = f"{i} {tiles} {letters[-i]}".center(width)
                 if i > 9:
                     row = row[1:]
-                grid.append(
-                    row
-                )
+                grid.append(row)
         row = f"{len(self.grid)} A".center(width)
         if len(self.grid) > 9:
             row = row[1:]
