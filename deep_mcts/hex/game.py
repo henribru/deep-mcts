@@ -108,10 +108,11 @@ class HexManager(GameManager[HexState, HexAction]):
 
     def evaluate_final_state(self, state: HexState) -> int:
         starts = ((0, y) for y in range(self.grid_size) if state.grid[y][0] == 0)
-        if any(self._traverse_from(start, 0, state) for start in starts):
+        visited = set()
+        if any(self._traverse_from(start, 0, state, visited) for start in starts):
             return 1
         starts = ((x, 0) for x in range(self.grid_size) if state.grid[0][x] == 1)
-        if any(self._traverse_from(start, 1, state) for start in starts):
+        if any(self._traverse_from(start, 1, state, visited) for start in starts):
             return -1
         return 0
 
@@ -122,11 +123,12 @@ class HexManager(GameManager[HexState, HexAction]):
         state: HexState,
         visited: Optional[MutableSet[Tuple[int, int]]] = None,
     ) -> bool:
-        x, y = coordinate
         if visited is None:
             visited = set()
         if coordinate in visited:
             return False
+        visited.add(coordinate)
+        x, y = coordinate
         if (
             player == 0
             and x == self.grid_size - 1
@@ -134,7 +136,6 @@ class HexManager(GameManager[HexState, HexAction]):
             and y == self.grid_size - 1
         ):
             return True
-        visited.add(coordinate)
         return any(
             self._traverse_from(neighbour, player, state, visited)
             for neighbour in self._get_neighbours(coordinate, player, state)
