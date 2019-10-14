@@ -67,7 +67,7 @@ class MCTS(Generic[_S, _A]):
         self.game_manager = game_manager
         self.num_simulations = num_simulations
         self.rollout_policy = rollout_policy
-        self.state_evaluator = state_evaluator  # type: ignore
+        self.state_evaluator = state_evaluator
         initial_state = self.game_manager.initial_game_state()
         self.root = Node(initial_state)
         self.epsilon = epsilon
@@ -91,7 +91,7 @@ class MCTS(Generic[_S, _A]):
         }
         if self.state_evaluator is None:
             return 0
-        value, probabilities = self.state_evaluator(node.state)  # type: ignore
+        value, probabilities = self.state_evaluator(node.state)
         for action, node in node.children.items():
             node.P = probabilities[action]
         return value

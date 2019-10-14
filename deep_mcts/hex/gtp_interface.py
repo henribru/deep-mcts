@@ -13,12 +13,12 @@ from deep_mcts.tournament import Agent
 
 
 class GTPInterface:
-    commands: Dict[str, Callable[["GTPInterface", List[str]], Optional[str]]]
+    commands: Dict[str, Callable[[List[str]], Optional[str]]]
     board_size: int
     game_manager: HexManager
     mcts: MCTS[HexState, HexAction]
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.commands = {
             "name": self.name,
             "version": self.version,
@@ -46,7 +46,7 @@ class GTPInterface:
             ).evaluate_state,
         )
 
-    def run_command(self, command) -> str:
+    def run_command(self, command: str) -> Optional[str]:
         command, *args = command.split()
         if command in self.commands:
             return self.commands[command](args)
@@ -159,7 +159,7 @@ def parse_player(player: str) -> int:
     return 0 if player == "black" else 1
 
 
-def format_player(player: int):
+def format_player(player: int) -> str:
     return "black" if player == 0 else "white"
 
 
@@ -181,8 +181,8 @@ def format_move(move: Tuple[int, int], grid_size: int) -> str:
     return f"{string.ascii_lowercase[grid_size - 1 - y]}{x + 1}"
 
 
-class GTPAgent(Agent):
-    def __init__(self, grid_size: int):
+class GTPAgent(Agent[HexState, HexAction]):
+    def __init__(self, grid_size: int) -> None:
         self.process = pexpect.spawn(
             "/mnt/d/OneDrive - NTNU/NTNU/IT3105/Deep MCTS/venv/bin/python",
             [

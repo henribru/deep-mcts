@@ -11,7 +11,7 @@ from deep_mcts.mcts import State, Action, GameManager, MCTS
 class HexState(State):
     grid: List[List[int]]
 
-    def __str__(self):
+    def __str__(self) -> str:
         symbol = {-1: ".", 0: "0", 1: "1"}
         grid = []
         letters = string.ascii_uppercase[: len(self.grid)]

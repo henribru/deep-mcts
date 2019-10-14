@@ -115,10 +115,10 @@ def train(
                     (states[j], probability_targets[j], value_targets[j])
                 )
         examples = random.sample(replay_buffer, min(512, len(replay_buffer)))
-        states, probability_targets, value_targets = zip(*examples)
-        states = torch.stack(states).to(DEVICE)
-        probability_targets = torch.stack(probability_targets).to(DEVICE)
-        value_targets = torch.stack(value_targets).to(DEVICE)
+        states, probability_targets, value_targets = zip(*examples)  # type: ignore
+        states = torch.stack(states).to(DEVICE)  # type: ignore
+        probability_targets = torch.stack(probability_targets).to(DEVICE)  # type: ignore
+        value_targets = torch.stack(value_targets).to(DEVICE)  # type: ignore
         game_net.train(states, probability_targets, value_targets)
         if evaluation_interval != 0 and (i + 1) % evaluation_interval == 0:
             mcts = MCTS(

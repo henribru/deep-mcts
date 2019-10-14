@@ -87,7 +87,7 @@ class GameNet(ABC, Generic[_S, _A]):
     def evaluate_state(self, state: _S) -> Tuple[float, Dict[_A, float]]:
         ...
 
-    def train(self, states, probability_targets, value_targets) -> None:
+    def train(self, states: torch.Tensor, probability_targets: torch.Tensor, value_targets: torch.Tensor) -> None:
         self.optimizer.zero_grad()
         values, probabilities = self.net.forward(states.float())
         values = torch.tanh(values)
