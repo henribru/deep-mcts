@@ -51,19 +51,19 @@ def compare_agents(
     num_games: int,
     game_manager: GameManager[_S, _A],
 ) -> Tuple[float, float, float]:
-    results = [0, 0, 0]
+    wins, draws, losses = 0, 0, 0
     for k in range(num_games):
         if k % 2 == 0:
             result = play(players, game_manager)
         else:
             result = -play((players[1], players[0]), game_manager)
         if result == 1:
-            results[0] += 1
+            wins += 1
         elif result == -1:
-            results[2] += 1
+            losses += 1
         else:
-            results[1] += 1
-    return (results[0] / num_games, results[1] / num_games, results[2] / num_games)
+            draws += 1
+    return wins / num_games, draws / num_games, losses / num_games
 
 
 def play(
