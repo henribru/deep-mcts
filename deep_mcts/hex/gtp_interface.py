@@ -192,7 +192,7 @@ class GTPAgent(Agent[HexState, HexAction]):
             encoding="utf-8",
         )
         self.process.sendline(f"boardsize {grid_size}")
-        self.process.expect("=\r\n\r\n")
+        self.process.expect("= \r\n\r\n")
         self.game_manager = HexManager(grid_size)
         self.state = self.game_manager.initial_game_state()
         self.grid_size = grid_size
@@ -208,7 +208,7 @@ class GTPAgent(Agent[HexState, HexAction]):
             )
             move = format_move(action.coordinate, self.grid_size)
             self.process.sendline(f"play {format_player(self.state.player)} {move}")
-            self.process.expect("=\r\n\r\n")
+            self.process.expect("= \r\n\r\n")
             self.state = state
         self.process.sendline(f"genmove {format_player(self.state.player)}")
         self.process.expect("= ([a-z]\\d{1,2})\r\n\r\n")
@@ -220,7 +220,7 @@ class GTPAgent(Agent[HexState, HexAction]):
 
     def reset(self) -> None:
         self.process.sendline("clear_board")
-        self.process.expect("=\r\n\r\n")
+        self.process.expect("= \r\n\r\n")
         self.state = self.game_manager.initial_game_state()
 
 
