@@ -7,11 +7,7 @@ import torch.optim.optimizer
 from deep_mcts.convolutionalnet import ConvolutionalNet
 from deep_mcts.game import CellState, Player, GameManager
 from deep_mcts.gamenet import GameNet
-from deep_mcts.hex_with_swap.game import (
-    HexWithSwapManager,
-    HexState,
-    Action,
-)
+from deep_mcts.hex_with_swap.game import HexWithSwapManager, HexState, Action
 
 
 class ConvolutionalHexWithSwapNet(GameNet[HexState]):
@@ -77,15 +73,15 @@ class ConvolutionalHexWithSwapNet(GameNet[HexState]):
         return result
 
     # Since we flip the board for the second player, we need to flip it back
-    def forward(self, state: HexState) -> Tuple[float, torch.Tensor]:
-        value, action_probabilities = super().forward(state)
-        if state.player == Player.SECOND:
-            action_probabilities[0, :-1] = (
-                action_probabilities[0, :-1]
-                .reshape((self.grid_size, self.grid_size))
-                .t()
-                .reshape((-1,))
-            )
+    def forward(self, states: Sequence[HexState]) -> Tuple[torch.Tensor, torch.Tensor]:
+        value, action_probabilities = super().forward(states)
+        second_player_states = [state.player == Player.SECOND for state in states]
+        action_probabilities[second_player_states, :-1] = (
+            action_probabilities[second_player_states, :-1]
+            .reshape((self.grid_size, self.grid_size))
+            .t()
+            .reshape((-1,))
+        )
         return value, action_probabilities
 
     def states_to_tensor(self, states: Sequence[HexState]) -> torch.Tensor:
@@ -123,7 +119,7 @@ class ConvolutionalHexWithSwapNet(GameNet[HexState]):
         return tensor
 
     def distributions_to_tensor(
-        self, states: Sequence[HexState], distributions: Sequence[Sequence[float]],
+        self, states: Sequence[HexState], distributions: Sequence[Sequence[float]]
     ) -> torch.Tensor:
         targets = torch.tensor(distributions, dtype=torch.float32)
         second_player_states = [state.player == Player.SECOND for state in states]
@@ -133,7 +129,7 @@ class ConvolutionalHexWithSwapNet(GameNet[HexState]):
             .t()
             .reshape((-1,))
         )
-        assert targets.shape == (len(distributions), self.grid_size ** 2 + 1,)
+        assert targets.shape == (len(distributions), self.grid_size ** 2 + 1)
         return targets
 
     def copy(self) -> "ConvolutionalHexWithSwapNet":

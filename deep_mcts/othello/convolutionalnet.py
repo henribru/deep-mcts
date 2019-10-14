@@ -7,10 +7,7 @@ import torch.optim.optimizer
 from deep_mcts.convolutionalnet import ConvolutionalNet
 from deep_mcts.game import GameManager, Action
 from deep_mcts.gamenet import GameNet
-from deep_mcts.othello.game import (
-    OthelloState,
-    OthelloManager,
-)
+from deep_mcts.othello.game import OthelloState, OthelloManager
 
 
 class ConvolutionalOthelloNet(GameNet[OthelloState]):
@@ -86,7 +83,7 @@ class ConvolutionalOthelloNet(GameNet[OthelloState]):
         return tensor
 
     def distributions_to_tensor(
-        self, states: Sequence[OthelloState], distributions: Sequence[Sequence[float]],
+        self, states: Sequence[OthelloState], distributions: Sequence[Sequence[float]]
     ) -> torch.Tensor:
         targets = torch.tensor(distributions, dtype=torch.float32)
         assert targets.shape == (len(distributions), self.grid_size ** 2 + 1)

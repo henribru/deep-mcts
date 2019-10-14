@@ -1,15 +1,7 @@
 import os.path
 import sys
 from abc import ABC, abstractmethod
-from typing import (
-    Callable,
-    Dict,
-    List,
-    NoReturn,
-    Optional,
-    TypeVar,
-    Generic,
-)
+from typing import Callable, Dict, List, NoReturn, Optional, TypeVar, Generic
 
 import dataclasses
 import numpy as np
@@ -54,7 +46,7 @@ class GTPInterface(ABC, Generic[_S]):
             self.game_manager,
             num_simulations=100,
             rollout_policy=None,
-            state_evaluator=cached_state_evaluator(self.net),
+            state_evaluator=cached_state_evaluator(self.net.forward_single),
         )
 
     def run_command(self, command: str) -> Optional[str]:
@@ -106,7 +98,7 @@ class GTPInterface(ABC, Generic[_S]):
             self.game_manager,
             num_simulations=100,
             rollout_policy=None,
-            state_evaluator=cached_state_evaluator(self.net),
+            state_evaluator=cached_state_evaluator(self.net.forward_single),
         )
 
     def play(self, args: List[str]) -> None:
@@ -142,14 +134,15 @@ class GTPInterface(ABC, Generic[_S]):
                 dataclasses.replace(self.mcts.root.state, player=player)
             )
         action_probabilities = self.mcts.step()
-        value, net_action_probabilities = self.net.forward(self.mcts.root.state)
+        value, net_action_probabilities = self.net.forward_single(self.mcts.root.state)
         print(value, file=sys.stderr)
         print(
-            self.game_manager.probabilities_grid(net_action_probabilities), file=sys.stderr,  # type: ignore
+            self.game_manager.probabilities_grid(net_action_probabilities),
+            file=sys.stderr,
         )
         print(file=sys.stderr)
         print(
-            self.game_manager.probabilities_grid(action_probabilities), file=sys.stderr,
+            self.game_manager.probabilities_grid(action_probabilities), file=sys.stderr
         )
         action = np.argmax(action_probabilities)
         self.mcts.root = self.mcts.root.children[action]

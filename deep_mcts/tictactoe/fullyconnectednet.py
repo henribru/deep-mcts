@@ -8,12 +8,7 @@ import torch.optim.optimizer
 
 from deep_mcts.game import Player, GameManager
 from deep_mcts.gamenet import GameNet
-from deep_mcts.tictactoe.game import (
-    TicTacToeState,
-    Action,
-    TicTacToeManager,
-    CellState,
-)
+from deep_mcts.tictactoe.game import TicTacToeState, Action, TicTacToeManager, CellState
 
 if TYPE_CHECKING:
     TensorPairModule = nn.Module[Tuple[torch.Tensor, torch.Tensor]]
@@ -112,9 +107,7 @@ class FullyConnectedTicTacToeNet(GameNet[TicTacToeState]):
         # return tensor
 
     def distributions_to_tensor(
-        self,
-        states: Sequence[TicTacToeState],
-        distributions: Sequence[Sequence[float]],
+        self, states: Sequence[TicTacToeState], distributions: Sequence[Sequence[float]]
     ) -> torch.Tensor:
         targets = torch.tensor(distributions, dtype=torch.float32)
         assert targets.shape == (len(distributions), 3 ** 2)

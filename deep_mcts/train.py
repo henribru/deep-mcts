@@ -3,22 +3,14 @@ import random
 import textwrap
 import time
 from functools import lru_cache
-from typing import (
-    Iterable,
-    Tuple,
-    Optional,
-    TypeVar,
-    List,
-    cast,
-    Sequence,
-    Generic,
-)
+from typing import Iterable, Tuple, Optional, TypeVar, List, cast, Sequence, Generic
 
 import pandas as pd
 import torch
 import torch.autograd
 from dataclasses import dataclass
-from torch import multiprocessing
+import torch.multiprocessing
+import multiprocessing
 
 from deep_mcts.game import State, GameManager, Player
 from deep_mcts.gamenet import GameNet
@@ -46,6 +38,7 @@ class TrainingConfiguration(Generic[_S]):
     epsilon: float = 0.05
     nprocs: int = 25
     batch_size: int = 512
+    self_play_batch_size: int = 8
     replay_buffer_max_size: int = 100_000
     train_device: torch.device = torch.device("cuda:1")
     self_play_device: torch.device = torch.device("cuda:0")
@@ -53,11 +46,11 @@ class TrainingConfiguration(Generic[_S]):
     transfer_interval: int = 1000
 
 
-def train(game_net: GameNet[_S], config: TrainingConfiguration[_S],) -> None:
+def train(game_net: GameNet[_S], config: TrainingConfiguration[_S]) -> None:
     evaluations = pd.DataFrame.from_dict(
         {
             i: (random_evaluation, previous_evaluation)
-            for i, random_evaluation, previous_evaluation in _train(game_net, config,)
+            for i, random_evaluation, previous_evaluation in _train(game_net, config)
         },
         orient="index",
         columns=["against_random", "against_previous"],
@@ -66,7 +59,7 @@ def train(game_net: GameNet[_S], config: TrainingConfiguration[_S],) -> None:
 
 
 def _train(
-    game_net: GameNet[_S], config: TrainingConfiguration[_S],
+    game_net: GameNet[_S], config: TrainingConfiguration[_S]
 ) -> Iterable[Tuple[int, AgentComparison, AgentComparison]]:
     print(f"{time.strftime('%H:%M:%S')} Starting")
     game_manager = game_net.manager
@@ -76,8 +69,17 @@ def _train(
     multiprocessing.set_start_method("spawn")
     self_play_game_net = game_net.copy().to(config.self_play_device)
     last_trained_iteration = torch.tensor([-1])
+    (
+        evaluation_queue,
+        result_receive_pipes,
+        self_play_evaluator_context,
+    ) = spawn_self_play_evaluator(self_play_game_net, config)
     self_playing_context, games_queue = spawn_self_play_example_creators(
-        self_play_game_net, last_trained_iteration, config,
+        game_manager,
+        last_trained_iteration,
+        config,
+        evaluation_queue,
+        result_receive_pipes,
     )
     previous_game_net = game_net.copy().to(config.train_device)
     training_iterations = 0
@@ -87,9 +89,9 @@ def _train(
     value_loss = torch.tensor([0.0], device=config.train_device)
     accuracy = torch.tensor([0.0], device=config.train_device)
     prev_evaluation_time = time.perf_counter()
-    while not self_playing_context.join(0):
+    while not self_playing_context.join(0) and not self_play_evaluator_context.join(0):
         new_games = get_new_games(
-            games_queue, self_playing_context, game_net, block=len(replay_buffer) == 0
+            games_queue, self_playing_context, self_play_evaluator_context, game_net, block=len(replay_buffer) == 0
         )
         training_games_count += len(new_games)
         training_examples_count += sum(len(game) for game in new_games)
@@ -131,7 +133,7 @@ def _train(
         ):
             print(f"{time.strftime('%H:%M:%S')} evaluating")
             random_mcts_evaluation, previous_evaluation = evaluate(
-                game_net, previous_game_net, game_manager, config,
+                game_net, previous_game_net, game_manager, config
             )
             print(
                 textwrap.dedent(
@@ -159,15 +161,63 @@ def _train(
         training_iterations += 1
 
 
-def spawn_self_play_example_creators(
+def spawn_self_play_evaluator(
+    game_net: GameNet[_S], config: TrainingConfiguration[_S]
+) -> Tuple[
+    "multiprocessing.Queue[Tuple[int, _S]]",
+    Sequence["multiprocessing.connection.Connection"],
+    torch.multiprocessing.SpawnContext,
+]:
+    evaluation_queue: "multiprocessing.Queue[Tuple[int, _S]]" = multiprocessing.Queue()
+    result_pipes: List[
+        Tuple[
+            multiprocessing.connection.Connection, multiprocessing.connection.Connection
+        ]
+    ] = [multiprocessing.Pipe() for _ in range(config.nprocs)]
+    result_receive_pipes, result_send_pipes = zip(*result_pipes)
+    context: torch.multiprocessing.SpawnContext = torch.multiprocessing.spawn(
+        self_play_evaluator,
+        (evaluation_queue, result_send_pipes, game_net, config.self_play_batch_size),
+        join=False
+    )
+    return evaluation_queue, result_receive_pipes, context
+
+
+def self_play_evaluator(
+    process_number: int,
+    evaluation_queue: "multiprocessing.Queue[Tuple[int, _S]]",
+    result_pipes: Sequence["multiprocessing.connection.Connection"],
     game_net: GameNet[_S],
+    batch_size: int,
+) -> None:
+    while True:
+        batch = [evaluation_queue.get() for _ in range(batch_size)]
+        process_numbers, batch = zip(*batch)
+        values, probabilities = game_net.forward(batch)
+        for i, process_number in enumerate(process_numbers):
+            result_pipes[process_number].send((i, values, probabilities))
+
+
+def spawn_self_play_example_creators(
+    game_manager: GameManager[_S],
     last_trained_iteration: torch.Tensor,
     config: TrainingConfiguration[_S],
-) -> Tuple[multiprocessing.SpawnContext, "multiprocessing.Queue[SelfPlayGame[_S]]"]:
+    evaluation_queue: "multiprocessing.Queue[Tuple[int, _S]]",
+    result_receive_pipes: Sequence["multiprocessing.connection.Connection"],
+) -> Tuple[
+    torch.multiprocessing.SpawnContext, "multiprocessing.Queue[SelfPlayGame[_S]]"
+]:
     games_queue: "multiprocessing.Queue[SelfPlayGame[_S]]" = multiprocessing.Queue()
-    context = multiprocessing.spawn(
+    context = torch.multiprocessing.spawn(
         create_self_play_examples,
-        (game_net, last_trained_iteration, config, games_queue),
+        (
+            game_manager,
+            last_trained_iteration,
+            config,
+            games_queue,
+            evaluation_queue,
+            result_receive_pipes,
+        ),
         nprocs=config.nprocs,
         join=False,
     )
@@ -176,15 +226,16 @@ def spawn_self_play_example_creators(
 
 def create_self_play_examples(
     process_number: int,
-    game_net: GameNet[_S],
+    game_manager: GameManager[_S],
     last_trained_iteration: torch.Tensor,
     config: TrainingConfiguration[_S],
     games_queue: "multiprocessing.Queue[SelfPlayGame[_S]]",
+    evaluation_queue: "multiprocessing.Queue[Tuple[int, _S]]",
+    result_receive_pipes: Sequence["multiprocessing.connection.Connection"],
 ) -> None:
-    game_manager = game_net.manager
     last_cached_iteration = 0
     # Use a uniform evaluator as the starting point
-    def uniform_state_evaluator(state: _S) -> Tuple[float, List[float]]:
+    def uniform_state_evaluator(state: _S) -> Tuple[float, Sequence[float]]:
         legal_actions = set(game_manager.legal_actions(state))
         return (
             0.5,
@@ -194,13 +245,18 @@ def create_self_play_examples(
             ],
         )
 
+    def batched_state_evaluator(state: _S) -> Tuple[float, Sequence[float]]:
+        evaluation_queue.put((process_number, state))
+        i, values, probabilities = result_receive_pipes[process_number].recv()
+        return values[i].item(), probabilities[i].tolist()
+
     state_evaluator: StateEvaluator[_S] = uniform_state_evaluator
     for i in range(config.num_games):
         # Recreate the cache if the network has been trained since
         # we last created the cache
         last_trained_iteration_value = cast(int, last_trained_iteration.item())
         if last_trained_iteration_value > last_cached_iteration:
-            state_evaluator = cached_state_evaluator(game_net)
+            state_evaluator = cached_state_evaluator(batched_state_evaluator)
             last_cached_iteration = last_trained_iteration_value
         mcts = MCTS(
             game_manager,
@@ -245,7 +301,8 @@ def create_self_play_examples(
 
 def get_new_games(
     games_queue: "multiprocessing.Queue[SelfPlayGame[_S]]",
-    self_playing_context: multiprocessing.SpawnContext,
+    self_playing_context: torch.multiprocessing.SpawnContext,
+    self_play_evaluator_context: torch.multiprocessing.SpawnContext,
     game_net: GameNet[_S],
     block: bool = False,
 ) -> List[List[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]]:
@@ -258,7 +315,7 @@ def get_new_games(
             game_lengths.append(len(game))
             new_examples.extend(game)
         except queue.Empty:
-            if block and not self_playing_context.join(0):
+            if block and not self_playing_context.join(0) and not self_play_evaluator_context.join(0):
                 continue
             break
     if not new_examples:
@@ -300,8 +357,8 @@ def evaluate(
     game_manager: GameManager[_S],
     config: TrainingConfiguration[_S],
 ) -> Tuple[AgentComparison, AgentComparison]:
-    state_evaluator = cached_state_evaluator(game_net)
-    previous_state_evaluator = cached_state_evaluator(previous_game_net)
+    state_evaluator = cached_state_evaluator(game_net.forward_single)
+    previous_state_evaluator = cached_state_evaluator(game_net.forward_single)
     random_mcts_evaluation = compare_agents(
         (
             MCTSAgent(
@@ -334,7 +391,7 @@ def evaluate(
                     state_evaluator,
                     dirichlet_alpha=config.dirichlet_alpha,
                     dirichlet_factor=config.dirichlet_factor,
-                ),
+                )
             ),
             MCTSAgent(
                 MCTS(
@@ -344,7 +401,7 @@ def evaluate(
                     previous_state_evaluator,
                     dirichlet_alpha=config.dirichlet_alpha,
                     dirichlet_factor=config.dirichlet_factor,
-                ),
+                )
             ),
         ),
         config.evaluation_games,
@@ -353,9 +410,9 @@ def evaluate(
     return random_mcts_evaluation, previous_evaluation
 
 
-def cached_state_evaluator(game_net: GameNet[_S]) -> StateEvaluator[_S]:
+def cached_state_evaluator(state_evaluator: StateEvaluator[_S]) -> StateEvaluator[_S]:
     @lru_cache(2 ** 20)
     def inner(state: _S) -> Tuple[float, Sequence[float]]:
-        return game_net.forward(state)  # type: ignore
+        return state_evaluator(state)
 
     return inner

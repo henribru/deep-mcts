@@ -57,24 +57,26 @@ class GameNet(ABC, Generic[_S]):
             self.net.parameters(), *optimizer_args, **optimizer_kwargs
         )
 
-    def forward(self, state: _S) -> Tuple[float, torch.Tensor]:
+    def forward(self, states: Sequence[_S]) -> Tuple[torch.Tensor, torch.Tensor]:
         self.net.eval()
-        states = self.states_to_tensor([state]).to(self.device)
-        value: torch.Tensor
+        states_ = states
+        states = self.states_to_tensor(states).to(self.device)
+        values: torch.Tensor
         with torch.autograd.no_grad():
-            value, probabilities = self.net.forward(states.float())
-        value = torch.tanh(value)
+            values, probabilities = self.net.forward(states.float())
+        values = torch.tanh(values)
         # The output value is from the perspective of the current player,
         # but MCTS expects it to be independent of the player
-        if state.player == Player.min_player():
-            value = -value
+        values[[state.player == Player.min_player() for state in states_], :] *= -1
         # MCTS uses a range of [0, 1]
-        value = (value + 1) / 2
+        values = (values + 1) / 2
         shape = probabilities.shape
         assert probabilities.shape == shape
-        probabilities = F.softmax(probabilities.reshape((1, -1)), dim=1).reshape(shape)
+        probabilities = F.softmax(
+            probabilities.reshape((len(states_), -1)), dim=1
+        ).reshape(shape)
         assert probabilities.shape == shape
-        probabilities = self._mask_illegal_moves([state], probabilities)
+        probabilities = self._mask_illegal_moves(states_, probabilities)
         assert probabilities.shape == shape
         probabilities = probabilities / torch.sum(
             probabilities, dim=tuple(range(1, probabilities.dim())), keepdim=True
@@ -84,10 +86,15 @@ class GameNet(ABC, Generic[_S]):
             torch.sum(probabilities, dim=tuple(range(1, probabilities.dim()))),
             torch.tensor([1.0], device=self.device),
         )
-        value = value.item()
-        probabilities = probabilities.flatten().cpu().detach()
-        assert len(probabilities.shape) == 1
-        return value, probabilities
+        values = values.flatten().cpu().detach()
+        probabilities = probabilities.reshape((len(states_), -1)).cpu().detach()
+        assert values.shape == (len(states_),)
+        assert probabilities.shape[0] == len(states_)
+        return values, probabilities
+
+    def forward_single(self, state: _S) -> Tuple[float, Sequence[float]]:
+        values, probabilities = self.forward([state])
+        return values[0], probabilities[0]  # type: ignore[return-value]
 
     @abstractmethod
     def _mask_illegal_moves(
@@ -132,7 +139,7 @@ class GameNet(ABC, Generic[_S]):
 
     @abstractmethod
     def distributions_to_tensor(
-        self, states: Sequence[_S], distributions: Sequence[Sequence[float]],
+        self, states: Sequence[_S], distributions: Sequence[Sequence[float]]
     ) -> torch.Tensor:
         ...
 

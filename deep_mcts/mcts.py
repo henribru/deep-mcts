@@ -123,7 +123,9 @@ class MCTS(Generic[_S]):
         while not self.game_manager.is_final_state(state):
             action = self.rollout_policy(state)
             state = self.game_manager.generate_child_state(state, action)
-        return self.game_manager.evaluate_final_state(state).value  # type: ignore[no-any-return]
+        return self.game_manager.evaluate_final_state(  # type: ignore[no-any-return]
+            state
+        ).value
 
     def backpropagate(self, path: Iterable[Node[_S]], evaluation: float) -> None:
         for node in path:
@@ -133,7 +135,9 @@ class MCTS(Generic[_S]):
 
     def evaluate_leaf(self, leaf_node: Node[_S]) -> float:
         if self.game_manager.is_final_state(leaf_node.state):
-            return self.game_manager.evaluate_final_state(leaf_node.state).value  # type: ignore[no-any-return]
+            return self.game_manager.evaluate_final_state(  # type: ignore[no-any-return]
+                leaf_node.state
+            ).value
         value = self.expand_node(leaf_node)
         rollout_value = self.rollout(leaf_node)
         if self.state_evaluator is None:

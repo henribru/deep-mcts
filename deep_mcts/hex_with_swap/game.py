@@ -27,9 +27,7 @@ class HexWithSwapManager(HexManager):
         return super().generate_child_state(state, action)
 
     @lru_cache(maxsize=2 ** 20)
-    def legal_actions(  # type: ignore[override]
-        self, state: HexState
-    ) -> List[Action]:
+    def legal_actions(self, state: HexState) -> List[Action]:  # type: ignore[override]
         actions = super().legal_actions(state)
         if (
             state.player == Player.SECOND
