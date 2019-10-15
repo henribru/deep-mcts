@@ -16,29 +16,11 @@ class HexState(State):
         grid = []
         letters = string.ascii_uppercase[: len(self.grid)]
         width = 2 * len(self.grid) - 1 + 4
-        # if len(self.grid) > 9:
-        #     width += 1
-        grid.append(f"{letters[-1]} {1}".center(width))
-        for i in range(len(self.grid) - 1):
-            tiles = " ".join(symbol[self.grid[i - x][x]] for x in range(i + 1))
-            grid.append(f"{letters[-2 - i]} {tiles} {i + 2}".center(width))
-            # grid.append(tiles.center(2 * len(self.grid) - 1))
+        grid.append(" ".join(letters).center(width - 1))
         for i in range(len(self.grid)):
-            tiles = " ".join(
-                symbol[self.grid[len(self.grid) - 1 + i - x][x]]
-                for x in range(i, len(self.grid))
-            )
-            if i == 0:
-                grid.append(f"  {tiles}  ".center(width))
-            else:
-                row = f"{i} {tiles} {letters[-i]}".center(width)
-                if i > 9:
-                    row = row[1:]
-                grid.append(row)
-        row = f"{len(self.grid)} A".center(width)
-        if len(self.grid) > 9:
-            row = row[1:]
-        grid.append(row)
+            tiles = " ".join(symbol[x] for x in self.grid[i])
+            grid.append(f"{' ' * (i if i < 9 else i - 1)}{i + 1} {tiles} {i + 1}".center(width))
+        grid.append(f"{' ' * (len(self.grid) + 2)}{' '.join(letters)}".center(width))
         return "\n".join(grid)
 
 
@@ -56,7 +38,7 @@ class HexManager(GameManager[HexState, HexAction]):
 
     def initial_game_state(self) -> HexState:
         return HexState(
-            0, [[-1 for _ in range(self.grid_size)] for _ in range(self.grid_size)]
+            1, [[-1 for _ in range(self.grid_size)] for _ in range(self.grid_size)]
         )
 
     def generate_child_states(self, state: HexState) -> Dict[HexAction, HexState]:

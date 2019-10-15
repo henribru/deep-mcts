@@ -1,6 +1,7 @@
 import re
 import string
 import sys
+import os.path
 from typing import Tuple, List, Callable, Dict, NoReturn, Optional
 
 import dataclasses
@@ -42,7 +43,7 @@ class GTPInterface:
             num_simulations=100,
             rollout_policy=None,
             state_evaluator=ConvolutionalHexNet.from_path(
-                "saves/anet-50400.pth", self.board_size
+                os.path.join(os.path.abspath(os.path.dirname(__file__)), "saves", "anet-5000000.pth"), self.board_size
             ).evaluate_state,
         )
 
@@ -92,7 +93,7 @@ class GTPInterface:
         self.game_manager = HexManager(self.board_size)
         if self.board_size == 5:
             game_net = ConvolutionalHexNet.from_path(
-                "saves/anet-50400.pth", self.board_size
+                os.path.join(os.path.abspath(os.path.dirname(__file__)), "saves", "anet-5000000.pth"), self.board_size
             )
         else:
             game_net = ConvolutionalHexNet(self.board_size)
@@ -156,11 +157,11 @@ def parse_player(player: str) -> int:
         player = "black"
     if player not in ["white", "black"]:
         raise ValueError("invalid player")
-    return 0 if player == "black" else 1
+    return 1 if player == "black" else 0
 
 
 def format_player(player: int) -> str:
-    return "black" if player == 0 else "white"
+    return "black" if player == 1 else "white"
 
 
 def parse_move(move: str, grid_size: int) -> Tuple[int, int]:
@@ -168,27 +169,27 @@ def parse_move(move: str, grid_size: int) -> Tuple[int, int]:
     match = re.match(r"([a-z])(\d{1,2})", move)
     if match is None:
         raise ValueError("invalid move")
-    y, x = match.groups()
-    y = grid_size - 1 - string.ascii_lowercase.find(y)
-    x = int(x) - 1
-    if y >= grid_size or not 0 <= x < grid_size:
+    x, y = match.groups()
+    x = string.ascii_lowercase.find(x)
+    y = int(y) - 1
+    if x >= grid_size or not 0 <= y < grid_size:
         raise ValueError("invalid move")
     return x, y
 
 
 def format_move(move: Tuple[int, int], grid_size: int) -> str:
     x, y = move
-    return f"{string.ascii_lowercase[grid_size - 1 - y]}{x + 1}"
+    return f"{string.ascii_lowercase[x]}{y + 1}"
 
 
 class GTPAgent(Agent[HexState, HexAction]):
     def __init__(self, grid_size: int) -> None:
         self.process = pexpect.spawn(
-            "/mnt/d/OneDrive - NTNU/NTNU/IT3105/Deep MCTS/venv/bin/python",
+            sys.executable,
             [
-                "/mnt/d/OneDrive - NTNU/NTNU/IT3105/Deep MCTS/deep_mcts/hex/gtp_interface.py"
+                os.path.dirname(__file__)
             ],
-            env={"PYTHONPATH": "/mnt/d/OneDrive - NTNU/NTNU/IT3105/Deep MCTS/"},
+            env={"PYTHONPATH": os.path.join(os.path.dirname(__file__), "..")},
             encoding="utf-8",
         )
         self.process.sendline(f"boardsize {grid_size}")
