@@ -57,9 +57,9 @@ def compare_agents(
             result = play(players, game_manager)
         else:
             result = -play((players[1], players[0]), game_manager)
-        if result == 1:
+        if result == -1:
             wins += 1
-        elif result == -1:
+        elif result == 1:
             losses += 1
         else:
             draws += 1
