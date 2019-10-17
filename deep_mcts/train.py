@@ -1,15 +1,15 @@
+import queue
 import random
 import time
 from typing import Iterable, Tuple, Optional, TypeVar, Callable, Deque, Dict, List
 
 import torch
+from torch import multiprocessing
 
 from deep_mcts.game import State, Action, GameManager
 from deep_mcts.gamenet import GameNet, DEVICE
 from deep_mcts.mcts import MCTS, GreedyMCTSAgent
-from deep_mcts.tournament import tournament, RandomAgent
-from torch import multiprocessing
-import queue
+from deep_mcts.tournament import RandomAgent, compare_agents
 
 _S = TypeVar("_S", bound=State)
 _A = TypeVar("_A", bound=Action)
@@ -128,11 +128,12 @@ def train(
                 state_evaluator=game_net.evaluate_state,
             )
             agent = GreedyMCTSAgent(mcts, epsilon)
-            random_evaluation = tournament(
-                [random_opponent, GreedyMCTSAgent(mcts)], 20, game_manager
-            )[1][0]
-            random_mcts_evaluation = tournament(
-                [
+            random_evaluation = compare_agents(
+                (GreedyMCTSAgent(mcts), random_opponent), 20, game_manager
+            )
+            random_mcts_evaluation = compare_agents(
+                (
+                    GreedyMCTSAgent(mcts),
                     GreedyMCTSAgent(
                         MCTS(
                             game_manager,
@@ -141,16 +142,15 @@ def train(
                             None,
                         )
                     ),
-                    GreedyMCTSAgent(mcts),
-                ],
+                ),
                 20,
                 game_manager,
-            )[1][0]
-            original_evaluation = tournament([original_agent, agent], 20, game_manager)[
-                1
-            ][0]
+            )
+            original_evaluation = compare_agents(
+                (agent, original_agent), 20, game_manager
+            )
             previous_evaluation = (
-                tournament([previous_agent, agent], 20, game_manager)[1][0]
+                compare_agents((agent, previous_agent), 20, game_manager)
                 if previous_agent is not None
                 else None
             )
