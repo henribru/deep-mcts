@@ -90,8 +90,12 @@ class MCTS(Generic[_S, _A]):
             action: Node(child_state) for action, child_state in child_states.items()
         }
         if self.state_evaluator is None:
-            return 0
-        value, probabilities = self.state_evaluator(node.state)
+            value, probabilities = (
+                0,
+                {action: 1 / len(node.children) for action in node.children.keys()},
+            )
+        else:
+            value, probabilities = self.state_evaluator(node.state)
         for action, node in node.children.items():
             node.P = probabilities[action]
         return value
