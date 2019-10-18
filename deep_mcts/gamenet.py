@@ -88,8 +88,7 @@ class GameNet(ABC, Generic[_S, _A]):
     def evaluate_state(self, state: _S) -> Tuple[float, Dict[_A, float]]:
         ...
 
-    def train(self, states: torch.Tensor, probability_targets: torch.Tensor, value_targets: torch.Tensor) -> None:
-        self.optimizer.zero_grad()
+    ) -> None:
         values, probabilities = self.net.forward(states.float())
         values = torch.tanh(values)
         assert probabilities.shape[0] == states.shape[0]
@@ -117,6 +116,7 @@ class GameNet(ABC, Generic[_S, _A]):
             values, value_targets
         )
         assert loss.shape == ()
+        self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
 
