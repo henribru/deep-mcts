@@ -47,6 +47,7 @@ class GameNet(ABC, Generic[_S, _A]):
 
     def forward(self, state: _S) -> Tuple[float, np.ndarray]:
         states = self.state_to_tensor(state).to(DEVICE)
+        with torch.autograd.no_grad():
         value, probabilities = self.net.forward(states.float())
         value = torch.tanh(value)
         # The output value is from the perspective of the current player,
