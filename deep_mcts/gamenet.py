@@ -10,8 +10,8 @@ from deep_mcts.mcts import Action, State
 
 from deep_mcts.tournament import Agent
 
-# DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-DEVICE = torch.device("cpu")
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# DEVICE = torch.device("cpu")
 
 
 def cross_entropy(
@@ -48,7 +48,7 @@ class GameNet(ABC, Generic[_S, _A]):
     def forward(self, state: _S) -> Tuple[float, np.ndarray]:
         states = self.state_to_tensor(state).to(DEVICE)
         with torch.autograd.no_grad():
-        value, probabilities = self.net.forward(states.float())
+            value, probabilities = self.net.forward(states.float())
         value = torch.tanh(value)
         # The output value is from the perspective of the current player,
         # but MCTS expects it to be independent of the player
