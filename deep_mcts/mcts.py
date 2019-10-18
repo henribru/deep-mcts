@@ -126,7 +126,15 @@ class MCTS(Generic[_S, _A]):
         while not self.game_manager.is_final_state(self.root.state):
             action_probabilities = self.step()
             if self.epsilon > 0 and random.random() < self.epsilon:
-                action = random.choice(list(action_probabilities.keys()))
+                action = list(action_probabilities.keys())[
+                    typing.cast(
+                        int,
+                        np.random.choice(
+                            len(action_probabilities),
+                            p=list(action_probabilities.values()),
+                        ),
+                    )
+                ]
             else:
                 action = max(
                     action_probabilities.keys(), key=lambda a: action_probabilities[a]
@@ -175,38 +183,21 @@ class MCTSAgent(Agent[_S, _A], ABC):
         )
         # self.mcts.root = next((child for child in self.mcts.root.children.values() if child.state == state), None)
         action_probabilities = self.mcts.step()
-        action = self.strategy(action_probabilities)
+        if self.mcts.epsilon > 0 and random.random() < self.mcts.epsilon:
+            action = list(action_probabilities.keys())[
+                typing.cast(
+                    int,
+                    np.random.choice(
+                        len(action_probabilities), p=list(action_probabilities.values())
+                    ),
+                )
+            ]
+        else:
+            action = max(
+                action_probabilities.keys(), key=lambda a: action_probabilities[a]
+            )
         self.mcts.root = self.mcts.root.children[action]
         return action
 
     def reset(self) -> None:
         self.mcts.reset()
-
-    @abstractmethod
-    def strategy(self, action_probabilities: Dict[_A, float]) -> _A:
-        ...
-
-
-class GreedyMCTSAgent(MCTSAgent[_S, _A]):
-    def __init__(self, mcts: MCTS[_S, _A], epsilon: float = 0) -> None:
-        super().__init__(mcts)
-        self.epsilon = epsilon
-
-    def strategy(self, action_probabilities: Dict[_A, float]) -> _A:
-        if self.epsilon > 0:
-            p = random.random()
-            if p < self.epsilon:
-                return random.choice(list(action_probabilities.keys()))
-        return max(action_probabilities.keys(), key=lambda a: action_probabilities[a])
-
-
-class SamplingMCTSAgent(MCTSAgent[_S, _A]):
-    def strategy(self, action_probabilities: Dict[_A, float]) -> _A:
-        return list(action_probabilities.keys())[
-            typing.cast(
-                int,
-                np.random.choice(
-                    len(action_probabilities), p=list(action_probabilities.values())
-                ),
-            )
-        ]

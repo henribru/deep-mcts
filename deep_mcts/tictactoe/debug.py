@@ -1,6 +1,6 @@
 from typing import Dict
 
-from deep_mcts.mcts import MCTS, GreedyMCTSAgent, Node
+from deep_mcts.mcts import MCTS, Node, MCTSAgent
 from deep_mcts.tictactoe.convolutionalnet import ConvolutionalTicTacToeNet
 from deep_mcts.tictactoe.fullyconnectednet import FullyConnectedTicTacToeNet
 from deep_mcts.tictactoe.game import (
@@ -27,7 +27,7 @@ if __name__ == "__main__":
     net = FullyConnectedTicTacToeNet.from_path("saves/anet-1000.pth")
     manager = TicTacToeManager()
     mcts = MCTS(manager, 100, None, net.evaluate_state)
-    agent = GreedyMCTSAgent(mcts)
+    agent = MCTSAgent(mcts)
     # print(tournament([agent, RandomAgent(manager)], 100, manager))
     # for state, next_state, action, visit_distribution in mcts.self_play():
     #     print_tic_tac_toe_grid(state.grid)
