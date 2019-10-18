@@ -19,7 +19,9 @@ class HexState(State):
         grid.append(" ".join(letters).center(width - 1))
         for i in range(len(self.grid)):
             tiles = " ".join(symbol[x] for x in self.grid[i])
-            grid.append(f"{' ' * (i if i < 9 else i - 1)}{i + 1} {tiles} {i + 1}".center(width))
+            grid.append(
+                f"{' ' * (i if i < 9 else i - 1)}{i + 1} {tiles} {i + 1}".center(width)
+            )
         grid.append(f"{' ' * (len(self.grid) + 2)}{' '.join(letters)}".center(width))
         return "\n".join(grid)
 

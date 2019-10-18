@@ -43,7 +43,12 @@ class GTPInterface:
             num_simulations=100,
             rollout_policy=None,
             state_evaluator=ConvolutionalHexNet.from_path(
-                os.path.join(os.path.abspath(os.path.dirname(__file__)), "saves", "anet-5000000.pth"), self.board_size
+                os.path.join(
+                    os.path.abspath(os.path.dirname(__file__)),
+                    "saves",
+                    "anet-50000.pth",
+                ),
+                self.board_size,
             ).evaluate_state,
         )
 
@@ -93,7 +98,12 @@ class GTPInterface:
         self.game_manager = HexManager(self.board_size)
         if self.board_size == 5:
             game_net = ConvolutionalHexNet.from_path(
-                os.path.join(os.path.abspath(os.path.dirname(__file__)), "saves", "anet-5000000.pth"), self.board_size
+                os.path.join(
+                    os.path.abspath(os.path.dirname(__file__)),
+                    "saves",
+                    "anet-50000.pth",
+                ),
+                self.board_size,
             )
         else:
             game_net = ConvolutionalHexNet(self.board_size)
@@ -186,9 +196,7 @@ class GTPAgent(Agent[HexState, HexAction]):
     def __init__(self, grid_size: int) -> None:
         self.process = pexpect.spawn(
             sys.executable,
-            [
-                os.path.dirname(__file__)
-            ],
+            [os.path.dirname(__file__)],
             env={"PYTHONPATH": os.path.join(os.path.dirname(__file__), "..")},
             encoding="utf-8",
         )

@@ -88,6 +88,11 @@ class GameNet(ABC, Generic[_S, _A]):
     def evaluate_state(self, state: _S) -> Tuple[float, Dict[_A, float]]:
         ...
 
+    def train(
+        self,
+        states: torch.Tensor,
+        probability_targets: torch.Tensor,
+        value_targets: torch.Tensor,
     ) -> None:
         values, probabilities = self.net.forward(states.float())
         values = torch.tanh(values)
