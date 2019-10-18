@@ -74,12 +74,15 @@ class PolicyHead(nn.Module):  # type: ignore
         self.conv1 = ConvolutionalBlock(
             in_channels=in_channels, out_channels=in_channels, kernel_size=3, padding=1
         )
+        self.bn1 = nn.BatchNorm2d(in_channels)
         self.conv2 = nn.Conv2d(
             in_channels=in_channels, out_channels=1, kernel_size=3, padding=1
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:  # type: ignore
         x = self.conv1(x)
+        x = self.bn1(x)
+        x = F.relu(x)
         x = self.conv2(x)
         return x
 
@@ -90,11 +93,14 @@ class ValueHead(nn.Module):  # type: ignore
         self.conv1 = ConvolutionalBlock(
             in_channels=in_channels, out_channels=1, kernel_size=1, padding=0
         )
+        self.bn1 = nn.BatchNorm2d(1)
         self.fc1 = nn.Linear(in_features=grid_size ** 2, out_features=hidden_units)
         self.fc2 = nn.Linear(in_features=hidden_units, out_features=1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:  # type: ignore
         x = self.conv1(x)
+        x = self.bn1(x)
+        x = F.relu(x)
         x = self.fc1(x.reshape((x.shape[0], -1)))
         x = F.relu(x)
         x = self.fc2(x)
@@ -143,11 +149,11 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
     def __init__(self, grid_size: int) -> None:
         super().__init__()
         self.net = ConvolutionalHexModule(
-            num_residual=3, grid_size=grid_size, channels=16
+            num_residual=1, grid_size=grid_size, channels=64
         ).to(DEVICE)
         self.grid_size = grid_size
         self.hex_manager = HexManager(grid_size)
-        self.optimizer = torch.optim.SGD(self.net.parameters(), lr=0.1, momentum=0.9)
+        self.optimizer = torch.optim.SGD(self.net.parameters(), lr=0.01, momentum=0.9)
 
     def _mask_illegal_moves(
         self, states: Sequence[HexState], output: torch.Tensor
