@@ -53,7 +53,7 @@ class MCTS(Generic[_S, _A]):
     root: Node[_S, _A]
     num_simulations: int
     rollout_policy: Optional[Callable[[_S], _A]]
-    state_evaluator: Optional[Callable[[_S], Tuple[float, Mapping[_A, float]]]]
+    state_evaluator: Optional[Callable[[_S], Tuple[float, Dict[_A, float]]]]
     epsilon: float
 
     def __init__(
@@ -61,7 +61,7 @@ class MCTS(Generic[_S, _A]):
         game_manager: GameManager[_S, _A],
         num_simulations: int,
         rollout_policy: Optional[Callable[[_S], _A]],
-        state_evaluator: Optional[Callable[[_S], Tuple[float, Mapping[_A, float]]]],
+        state_evaluator: Optional[Callable[[_S], Tuple[float, Dict[_A, float]]]],
         epsilon: float = 0,
     ) -> None:
         self.game_manager = game_manager
@@ -91,7 +91,7 @@ class MCTS(Generic[_S, _A]):
         }
         if self.state_evaluator is None:
             value, probabilities = (
-                0,
+                0.0,
                 {action: 1 / len(node.children) for action in node.children.keys()},
             )
         else:

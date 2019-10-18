@@ -2,7 +2,7 @@ import random
 import string
 
 from dataclasses import dataclass
-from typing import Dict, Tuple, List, Iterable, MutableSet, Optional
+from typing import Dict, Tuple, List, Iterable, MutableSet, Optional, Set
 
 from deep_mcts.mcts import State, Action, GameManager, MCTS
 
@@ -90,7 +90,7 @@ class HexManager(GameManager[HexState, HexAction]):
 
     def evaluate_final_state(self, state: HexState) -> int:
         starts = ((0, y) for y in range(self.grid_size) if state.grid[y][0] == 0)
-        visited = set()
+        visited = Set[Tuple[int, int]]()
         if any(self._traverse_from(start, 0, state, visited) for start in starts):
             return 1
         starts = ((x, 0) for x in range(self.grid_size) if state.grid[0][x] == 1)
