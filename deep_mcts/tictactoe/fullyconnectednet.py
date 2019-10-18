@@ -1,5 +1,5 @@
 import random
-from typing import Tuple, Dict, Sequence, Mapping
+from typing import Tuple, Dict, Sequence, Mapping, TYPE_CHECKING
 
 import numpy as np
 import torch
@@ -10,8 +10,13 @@ import torch.optim
 from deep_mcts.gamenet import GameNet, DEVICE
 from deep_mcts.tictactoe.game import TicTacToeState, TicTacToeAction, TicTacToeManager
 
+if TYPE_CHECKING:
+    TensorPairModule = nn.Module[Tuple[torch.Tensor, torch.Tensor]]
+else:
+    TensorPairModule = nn.Module
 
-class FullyConnectedTicTacToeModule(nn.Module):  # type: ignore
+
+class FullyConnectedTicTacToeModule(TensorPairModule):
     def __init__(self) -> None:
         super().__init__()
         self.fc1 = nn.Linear(3 ** 2 * 2 + 1, 128)

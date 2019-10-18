@@ -1,5 +1,5 @@
 import random
-from typing import Tuple, Dict, Mapping, Sequence, Any
+from typing import Tuple, Dict, Mapping, Sequence, TYPE_CHECKING
 
 import numpy as np
 import torch
@@ -10,8 +10,15 @@ import torch.optim
 from deep_mcts.gamenet import GameNet, DEVICE
 from deep_mcts.tictactoe.game import TicTacToeAction, TicTacToeState, TicTacToeManager
 
+if TYPE_CHECKING:
+    TensorModule = nn.Module[torch.Tensor]
+    TensorPairModule = nn.Module[Tuple[torch.Tensor, torch.Tensor]]
+else:
+    TensorModule = nn.Module
+    TensorPairModule = nn.Module
 
-class ConvolutionalBlock(nn.Module):  # type: ignore
+
+class ConvolutionalBlock(TensorModule):
     def __init__(
         self, in_channels: int, out_channels: int, kernel_size: int, padding: int
     ) -> None:
@@ -31,7 +38,7 @@ class ConvolutionalBlock(nn.Module):  # type: ignore
         return x
 
 
-class ResidualBlock(nn.Module):  # type: ignore
+class ResidualBlock(TensorModule):
     def __init__(
         self, in_channels: int, out_channels: int, kernel_size: int, padding: int
     ) -> None:
@@ -68,7 +75,7 @@ class ResidualBlock(nn.Module):  # type: ignore
         return x
 
 
-class PolicyHead(nn.Module):  # type: ignore
+class PolicyHead(TensorModule):
     def __init__(self, in_channels: int) -> None:
         super().__init__()
         self.conv1 = ConvolutionalBlock(
@@ -84,7 +91,7 @@ class PolicyHead(nn.Module):  # type: ignore
         return x
 
 
-class ValueHead(nn.Module):  # type: ignore
+class ValueHead(TensorModule):
     def __init__(self, grid_size: int, in_channels: int, hidden_units: int) -> None:
         super().__init__()
         self.conv1 = ConvolutionalBlock(
@@ -101,7 +108,7 @@ class ValueHead(nn.Module):  # type: ignore
         return x
 
 
-class ConvolutionalTicTacToeModule(nn.Module):  # type: ignore
+class ConvolutionalTicTacToeModule(TensorPairModule):
     def __init__(self, num_residual: int, channels: int) -> None:
         super().__init__()
         self.conv1 = ConvolutionalBlock(

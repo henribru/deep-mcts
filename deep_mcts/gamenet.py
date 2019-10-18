@@ -5,6 +5,7 @@ import numpy as np
 import torch.optim.optimizer
 import torch.nn as nn
 import torch.nn.functional as F
+import torch
 
 from deep_mcts.mcts import Action, State
 
@@ -36,7 +37,7 @@ _T = TypeVar("_T", bound="GameNet")  # type: ignore
 
 
 class GameNet(ABC, Generic[_S, _A]):
-    net: "nn.Module[Any]"
+    net: "nn.Module[Tuple[torch.Tensor, torch.Tensor]]"
     policy_criterion: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
     value_criterion: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
     optimizer: "torch.optim.optimizer.Optimizer"
