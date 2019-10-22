@@ -169,9 +169,11 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
     ) -> torch.Tensor:
         states = torch.stack(
             [
-                torch.tensor(state.grid) if state.player == Player.FIRST else torch.tensor(state.grid).t()
+                torch.tensor(state.grid)
+                if state.player == Player.FIRST
+                else torch.tensor(state.grid).t()
                 for state in states
-            ],
+            ]
         )
         legal_moves = (states == CellState.EMPTY).to(dtype=torch.float32, device=DEVICE)
         assert legal_moves.shape == output.shape
@@ -191,7 +193,7 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
         action_probabilities = action_probabilities[0, :, :]
         assert action_probabilities.shape == (self.grid_size, self.grid_size)
         action = np.random.choice(
-            action_probabilities.size, p=action_probabilities.flatten()
+            self.grid_size ** 2, p=action_probabilities.flatten()
         )
         y, x = np.unravel_index(action, action_probabilities.shape)
         action = HexAction((x, y))
@@ -241,16 +243,22 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
         # the board for player 0.
         grids = torch.stack(
             [
-                torch.tensor(state.grid) if state.player == Player.FIRST else torch.tensor(state.grid).t()
+                torch.tensor(state.grid)
+                if state.player == Player.FIRST
+                else torch.tensor(state.grid).t()
                 for state in states
-            ],
+            ]
         )
-        current_player = (grids == torch.tensor([state.player for state in states]).reshape(
-            (-1, 1, 1)
-        )).float()
-        other_player = (grids == torch.tensor(
-            [state.player.opposite() for state in states]
-        ).reshape((-1, 1, 1))).float()
+        current_player = (
+            grids
+            == torch.tensor([state.player for state in states]).reshape((-1, 1, 1))
+        ).float()
+        other_player = (
+            grids
+            == torch.tensor([state.player.opposite() for state in states]).reshape(
+                (-1, 1, 1)
+            )
+        ).float()
         #  assert np.all((first_player.sum(axis=1) - second_player.sum(axis=1)) <= 1)
         tensor = torch.stack((current_player, other_player, players), dim=1)
         assert tensor.shape == (len(states), 3, self.grid_size, self.grid_size)

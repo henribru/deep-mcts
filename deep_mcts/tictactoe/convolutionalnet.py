@@ -172,7 +172,7 @@ class ConvolutionalTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
         action_probabilities = action_probabilities[0, :, :]
         assert action_probabilities.shape == (3, 3)
         action = np.random.choice(
-            action_probabilities.size, p=action_probabilities.flatten()
+            3 ** 2, p=action_probabilities.flatten()
         )
         y, x = np.unravel_index(action, action_probabilities.shape)
         action = TicTacToeAction((x, y))
@@ -220,12 +220,16 @@ class ConvolutionalTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
         )
         # We want everything to be from the perspective of the current player.
         grids = torch.tensor([state.grid for state in states])
-        current_player = (grids == torch.tensor([state.player for state in states]).reshape(
-            (-1, 1, 1)
-        )).float()
-        other_player = (grids == torch.tensor(
-            [state.player.opposite() for state in states]
-        ).reshape((-1, 1, 1))).float()
+        current_player = (
+            grids
+            == torch.tensor([state.player for state in states]).reshape((-1, 1, 1))
+        ).float()
+        other_player = (
+            grids
+            == torch.tensor([state.player.opposite() for state in states]).reshape(
+                (-1, 1, 1)
+            )
+        ).float()
         #  assert np.all((first_player.sum(axis=1) - second_player.sum(axis=1)) <= 1)
         tensor = torch.stack((current_player, other_player, players), dim=1)
         assert tensor.shape == (len(states), 3, 3, 3)

@@ -66,7 +66,7 @@ class FullyConnectedTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
         _, action_probabilities = self.forward(state)
         action_probabilities = action_probabilities[0, :]
         assert action_probabilities.shape == (3 ** 2,)
-        action = np.random.choice(len(action_probabilities), p=action_probabilities)
+        action = np.random.choice(3 ** 2, p=action_probabilities)
         x, y = action % 3, action // 3
         return TicTacToeAction((x, y))
 
@@ -80,7 +80,7 @@ class FullyConnectedTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
         _, action_probabilities = self.forward(state)
         action_probabilities = action_probabilities[0, :]
         assert action_probabilities.shape == (3 ** 2,)
-        action = torch.argmax(action_probabilities)
+        action = torch.argmax(action_probabilities).item()
         x, y = action % 3, action // 3
         return TicTacToeAction((x, y))
 
@@ -115,14 +115,18 @@ class FullyConnectedTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
         players = torch.tensor([state.player for state in states]).reshape(
             (len(states), -1)
         )
-        grids = torch.tensor([state.grid for state in states]).reshape((len(states), -1))
+        grids = torch.tensor([state.grid for state in states]).reshape(
+            (len(states), -1)
+        )
         for i in range(len(states)):
             assert (grids[i, :] == torch.tensor(states[i].grid).flatten()).all()
         first_player = grids == Player.FIRST
         second_player = grids == Player.SECOND
         assert ((first_player.sum(dim=1) - second_player.sum(dim=1)) <= 1).all()
         # TODO: Make current player come first instead of always player 0?
-        tensor = torch.cat((first_player, second_player, players), dim=1).to(dtype=torch.float32)
+        tensor = torch.cat((first_player, second_player, players), dim=1).to(
+            dtype=torch.float32
+        )
         assert tensor.shape == (len(states), 2 * 3 ** 2 + 1)
         return tensor
         # players = np.array([state.player for state in states]).reshape(
