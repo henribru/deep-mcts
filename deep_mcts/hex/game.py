@@ -135,7 +135,7 @@ class HexManager(GameManager[HexState, HexAction]):
     ) -> Iterable[Tuple[int, int]]:
         x, y = coordinate
         shifts = [(0, -1), (1, -1), (1, 0), (0, 1), (-1, 1), (-1, 0)]
-        for y_shift, x_shift in shifts:
+        for x_shift, y_shift in shifts:
             shifted_x = x + x_shift
             shifted_y = y + y_shift
             if (
