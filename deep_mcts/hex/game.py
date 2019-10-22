@@ -147,16 +147,12 @@ class HexManager(GameManager[HexState, HexAction]):
 
 
 def hex_simulator(grid_size: int, num_simulations: int) -> None:
-    def state_evaluator(state: HexState) -> Tuple[float, Dict[HexAction, float]]:
-        legal_actions = manager.legal_actions(state)
-        return 0, {action: 1 / len(legal_actions) for action in legal_actions}
-
     manager = HexManager(grid_size)
     mcts = MCTS(
         manager,
         num_simulations,
         lambda state: random.choice(manager.legal_actions(state)),
-        state_evaluator,
+        None,
     )
     for state, next_state, action, _ in mcts.self_play():
         print(action.coordinate)
