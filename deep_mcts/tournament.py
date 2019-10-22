@@ -1,13 +1,15 @@
 import itertools
 import random
 from abc import ABC, abstractmethod
-from typing import Tuple, List, TypeVar, Sequence, Generic
+from typing import Tuple, List, TypeVar, Sequence, Generic, TYPE_CHECKING
 
 from deep_mcts.game import State
-from deep_mcts.mcts import GameManager
 
 _S = TypeVar("_S", bound=State)
 _A = TypeVar("_A")
+
+if TYPE_CHECKING:
+    from deep_mcts.mcts import GameManager
 
 
 class Agent(ABC, Generic[_S, _A]):
@@ -21,9 +23,9 @@ class Agent(ABC, Generic[_S, _A]):
 
 
 class RandomAgent(Agent[_S, _A]):
-    manager: GameManager[_S, _A]
+    manager: "GameManager[_S, _A]"
 
-    def __init__(self, manager: GameManager[_S, _A]):
+    def __init__(self, manager: "GameManager[_S, _A]"):
         self.manager = manager
 
     def play(self, state: _S) -> _A:
@@ -34,7 +36,7 @@ class RandomAgent(Agent[_S, _A]):
 
 
 def tournament(
-    agents: Sequence[Agent[_S, _A]], num_games: int, game_manager: GameManager[_S, _A]
+    agents: Sequence[Agent[_S, _A]], num_games: int, game_manager: "GameManager[_S, _A]"
 ) -> List[List[Tuple[float, float, float]]]:
     results = [
         [(0.0, 0.0, 0.0) for _ in range(len(agents))] for _ in range(len(agents))
@@ -49,7 +51,7 @@ def tournament(
 def compare_agents(
     players: Tuple[Agent[_S, _A], Agent[_S, _A]],
     num_games: int,
-    game_manager: GameManager[_S, _A],
+    game_manager: "GameManager[_S, _A]",
 ) -> Tuple[float, float, float]:
     wins, draws, losses = 0, 0, 0
     for k in range(num_games):
@@ -67,7 +69,7 @@ def compare_agents(
 
 
 def play(
-    players: Tuple[Agent[_S, _A], Agent[_S, _A]], game_manager: GameManager[_S, _A]
+    players: Tuple[Agent[_S, _A], Agent[_S, _A]], game_manager: "GameManager[_S, _A]"
 ) -> int:
     state = game_manager.initial_game_state()
     player = 0
