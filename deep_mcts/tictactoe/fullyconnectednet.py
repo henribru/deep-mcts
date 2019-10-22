@@ -55,10 +55,8 @@ class FullyConnectedTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
     def _mask_illegal_moves(
         self, states: Sequence[TicTacToeState], output: torch.Tensor
     ) -> torch.Tensor:
-        states = np.stack([state.grid for state in states], axis=0).reshape(-1, 9)
-        legal_moves = torch.as_tensor(
-            states == CellState.EMPTY, dtype=torch.float32, device=DEVICE
-        )
+        states = torch.tensor([state.grid for state in states]).reshape(-1, 9)
+        legal_moves = (states == CellState.EMPTY).to(dtype=torch.float32, device=DEVICE)
         assert legal_moves.shape == output.shape
         result = output * legal_moves
         assert result.shape == output.shape
@@ -82,7 +80,7 @@ class FullyConnectedTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
         _, action_probabilities = self.forward(state)
         action_probabilities = action_probabilities[0, :]
         assert action_probabilities.shape == (3 ** 2,)
-        action = np.argmax(action_probabilities)
+        action = torch.argmax(action_probabilities)
         x, y = action % 3, action // 3
         return TicTacToeAction((x, y))
 
@@ -93,7 +91,7 @@ class FullyConnectedTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
         probabilities = probabilities[0, :]
         assert probabilities.shape == (3 ** 2,)
         actions = {
-            TicTacToeAction((x, y)): probabilities[y * 3 + x]
+            TicTacToeAction((x, y)): probabilities[y * 3 + x].item()
             for y in range(3)
             for x in range(3)
         }
@@ -114,18 +112,17 @@ class FullyConnectedTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
         return self.states_to_tensor([state])
 
     def states_to_tensor(self, states: Sequence[TicTacToeState]) -> torch.Tensor:
-        players = np.array([state.player for state in states]).reshape(
+        players = torch.tensor([state.player for state in states]).reshape(
             (len(states), -1)
         )
-        grids = np.stack([state.grid for state in states]).reshape((len(states), -1))
+        grids = torch.tensor([state.grid for state in states]).reshape((len(states), -1))
         for i in range(len(states)):
-            assert np.all(grids[i, :] == np.array(states[i].grid).flatten())
+            assert (grids[i, :] == torch.tensor(states[i].grid).flatten()).all()
         first_player = grids == Player.FIRST
         second_player = grids == Player.SECOND
-        assert np.all((first_player.sum(axis=1) - second_player.sum(axis=1)) <= 1)
+        assert ((first_player.sum(dim=1) - second_player.sum(dim=1)) <= 1).all()
         # TODO: Make current player come first instead of always player 0?
-        states = np.concatenate((first_player, second_player, players), axis=1)
-        tensor = torch.as_tensor(states, dtype=torch.float32, device=DEVICE)
+        tensor = torch.cat((first_player, second_player, players), dim=1).to(dtype=torch.float32)
         assert tensor.shape == (len(states), 2 * 3 ** 2 + 1)
         return tensor
         # players = np.array([state.player for state in states]).reshape(
@@ -151,12 +148,11 @@ class FullyConnectedTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
         states: Sequence[TicTacToeState],
         distributions: Sequence[Mapping[TicTacToeAction, float]],
     ) -> torch.Tensor:
-        targets = np.zeros((len(distributions), 3 ** 2), dtype=np.float32)
+        targets = torch.zeros(len(distributions), 3 ** 2).float()
         for i, distribution in enumerate(distributions):
             for action, probability in distribution.items():
                 x, y = action.coordinate
                 targets[i][y * 3 + x] = probability
-        targets = torch.as_tensor(targets, device=DEVICE)
         assert targets.shape == (len(distributions), 3 ** 2)
         return targets
 

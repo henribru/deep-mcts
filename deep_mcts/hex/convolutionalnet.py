@@ -167,26 +167,23 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
     def _mask_illegal_moves(
         self, states: Sequence[HexState], output: torch.Tensor
     ) -> torch.Tensor:
-        states = np.stack(
+        states = torch.stack(
             [
-                state.grid if state.player == Player.FIRST else np.transpose(state.grid)
+                torch.tensor(state.grid) if state.player == Player.FIRST else torch.tensor(state.grid).t()
                 for state in states
             ],
-            axis=0,
         )
-        legal_moves = torch.as_tensor(
-            states == CellState.EMPTY, dtype=torch.float32, device=DEVICE
-        )
+        legal_moves = (states == CellState.EMPTY).to(dtype=torch.float32, device=DEVICE)
         assert legal_moves.shape == output.shape
         result = output * legal_moves
         assert result.shape == output.shape
         return result
 
     # Since we flip the board for player 0, we need to flip it back
-    def forward(self, state: HexState) -> Tuple[float, np.ndarray]:
+    def forward(self, state: HexState) -> Tuple[float, torch.Tensor]:
         value, action_probabilities = super().forward(state)
         if state.player == Player.SECOND:
-            action_probabilities = np.swapaxes(action_probabilities, 1, 2)
+            action_probabilities = torch.transpose(action_probabilities, 1, 2)
         return value, action_probabilities
 
     def sampling_policy(self, state: HexState) -> HexAction:
@@ -210,7 +207,7 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
         action_probabilities = action_probabilities[0, :, :]
         assert action_probabilities.shape == (self.grid_size, self.grid_size)
         y, x = np.unravel_index(
-            np.argmax(action_probabilities), action_probabilities.shape
+            torch.argmax(action_probabilities), action_probabilities.shape
         )
         action = HexAction((x, y))
         assert action in self.hex_manager.legal_actions(state)
@@ -219,7 +216,7 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
     def evaluate_state(self, state: HexState) -> Tuple[float, Dict[HexAction, float]]:
         value, probabilities = self.forward(state)
         actions = {
-            HexAction((x, y)): probabilities[0, y, x]
+            HexAction((x, y)): probabilities[0, y, x].item()
             for y in range(self.grid_size)
             for x in range(self.grid_size)
         }
@@ -232,9 +229,9 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
         return self.states_to_tensor([state])
 
     def states_to_tensor(self, states: Sequence[HexState]) -> torch.Tensor:
-        players = np.array(
+        players = torch.stack(
             [
-                np.full(shape=(self.grid_size, self.grid_size), fill_value=state.player)
+                torch.full((self.grid_size, self.grid_size), fill_value=state.player)
                 for state in states
             ]
         )
@@ -242,23 +239,20 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
         # We also want a consistent orientation, the current player's goal
         # should always be connecting north-south. This means we need to flip
         # the board for player 0.
-        grids = np.stack(
+        grids = torch.stack(
             [
-                state.grid if state.player == Player.FIRST else np.transpose(state.grid)
+                torch.tensor(state.grid) if state.player == Player.FIRST else torch.tensor(state.grid).t()
                 for state in states
             ],
-            axis=0,
         )
-        current_player = grids == np.array([state.player for state in states]).reshape(
+        current_player = (grids == torch.tensor([state.player for state in states]).reshape(
             (-1, 1, 1)
-        )
-        other_player = grids == np.array(
+        )).float()
+        other_player = (grids == torch.tensor(
             [state.player.opposite() for state in states]
-        ).reshape((-1, 1, 1))
+        ).reshape((-1, 1, 1))).float()
         #  assert np.all((first_player.sum(axis=1) - second_player.sum(axis=1)) <= 1)
-        tensor = torch.as_tensor(
-            np.stack((current_player, other_player, players), axis=1)
-        )
+        tensor = torch.stack((current_player, other_player, players), dim=1)
         assert tensor.shape == (len(states), 3, self.grid_size, self.grid_size)
         return tensor
 
@@ -267,17 +261,16 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
         states: Sequence[HexState],
         distributions: Sequence[Mapping[HexAction, float]],
     ) -> torch.Tensor:
-        targets = np.zeros(
-            (len(distributions), self.grid_size, self.grid_size), dtype=np.float32
-        )
+        targets = torch.zeros(
+            len(distributions), self.grid_size, self.grid_size
+        ).float()
         for i, (state, distribution) in enumerate(zip(states, distributions)):
             for action, probability in distribution.items():
                 x, y = action.coordinate
                 targets[i][y][x] = probability
             # Since we flip the board for player 0, we also need to flip the targets
             if state.player == Player.SECOND:
-                targets[i] = targets[i].T
-        targets = torch.as_tensor(targets)
+                targets[i] = targets[i].t()
         assert targets.shape == (len(distributions), self.grid_size, self.grid_size)
         return targets
 

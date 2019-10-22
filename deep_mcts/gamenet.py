@@ -46,7 +46,7 @@ class GameNet(ABC, Generic[_S, _A]):
         self.policy_criterion = cross_entropy  # type: ignore
         self.value_criterion = nn.MSELoss().to(DEVICE)  # type: ignore
 
-    def forward(self, state: _S) -> Tuple[float, np.ndarray]:
+    def forward(self, state: _S) -> Tuple[float, torch.Tensor]:
         states = self.state_to_tensor(state).to(DEVICE)
         with torch.autograd.no_grad():
             value, probabilities = self.net.forward(states.float())
@@ -69,7 +69,7 @@ class GameNet(ABC, Generic[_S, _A]):
             torch.sum(probabilities, dim=tuple(range(1, probabilities.dim()))),
             torch.tensor([1.0], device=DEVICE),
         )
-        return value.item(), probabilities.cpu().detach().numpy()
+        return value.item(), probabilities.cpu().detach()
 
     @abstractmethod
     def _mask_illegal_moves(

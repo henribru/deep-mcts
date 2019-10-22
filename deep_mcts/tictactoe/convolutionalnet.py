@@ -160,10 +160,8 @@ class ConvolutionalTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
     def _mask_illegal_moves(
         self, states: Sequence[TicTacToeState], output: torch.Tensor
     ) -> torch.Tensor:
-        states = np.stack([state.grid for state in states], axis=0)
-        legal_moves = torch.as_tensor(
-            states == CellState.EMPTY, dtype=torch.float32, device=DEVICE
-        )
+        states = torch.tensor([state.grid for state in states])
+        legal_moves = (states == CellState.EMPTY).to(dtype=torch.float32, device=DEVICE)
         assert legal_moves.shape == output.shape
         result = output * legal_moves
         assert result.shape == output.shape
@@ -192,7 +190,7 @@ class ConvolutionalTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
         action_probabilities = action_probabilities[0, :, :]
         assert action_probabilities.shape == (3, 3)
         y, x = np.unravel_index(
-            np.argmax(action_probabilities), action_probabilities.shape
+            torch.argmax(action_probabilities), action_probabilities.shape
         )
         assert action_probabilities[y][x] == action_probabilities.max()
         action = TicTacToeAction((x, y))
@@ -204,7 +202,7 @@ class ConvolutionalTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
     ) -> Tuple[float, Dict[TicTacToeAction, float]]:
         value, probabilities = self.forward(state)
         actions = {
-            TicTacToeAction((x, y)): probabilities[0, y, x]
+            TicTacToeAction((x, y)): probabilities[0, y, x].item()
             for y in range(3)
             for x in range(3)
         }
@@ -217,21 +215,19 @@ class ConvolutionalTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
         return self.states_to_tensor([state])
 
     def states_to_tensor(self, states: Sequence[TicTacToeState]) -> torch.Tensor:
-        players = np.array(
-            [np.full(shape=(3, 3), fill_value=state.player) for state in states]
+        players = torch.stack(
+            [torch.full((3, 3), fill_value=state.player) for state in states]
         )
         # We want everything to be from the perspective of the current player.
-        grids = np.stack([state.grid for state in states], axis=0)
-        current_player = grids == np.array([state.player for state in states]).reshape(
+        grids = torch.tensor([state.grid for state in states])
+        current_player = (grids == torch.tensor([state.player for state in states]).reshape(
             (-1, 1, 1)
-        )
-        other_player = grids == np.array(
+        )).float()
+        other_player = (grids == torch.tensor(
             [state.player.opposite() for state in states]
-        ).reshape((-1, 1, 1))
+        ).reshape((-1, 1, 1))).float()
         #  assert np.all((first_player.sum(axis=1) - second_player.sum(axis=1)) <= 1)
-        tensor = torch.as_tensor(
-            np.stack((current_player, other_player, players), axis=1)
-        )
+        tensor = torch.stack((current_player, other_player, players), dim=1)
         assert tensor.shape == (len(states), 3, 3, 3)
         return tensor
 
@@ -240,12 +236,11 @@ class ConvolutionalTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
         states: Sequence[TicTacToeState],
         distributions: Sequence[Mapping[TicTacToeAction, float]],
     ) -> torch.Tensor:
-        targets = np.zeros((len(distributions), 3, 3), dtype=np.float32)
+        targets = torch.zeros(len(distributions), 3, 3).float()
         for i, distribution in enumerate(distributions):
             for action, probability in distribution.items():
                 x, y = action.coordinate
                 targets[i][y][x] = probability
-        targets = torch.as_tensor(targets)
         assert targets.shape == (len(distributions), 3, 3)
         return targets
 
