@@ -157,7 +157,7 @@ class GameNet(ABC, Generic[_S, _A]):
         return anet
 
 
-class GameNetAgent(Agent[_S, _A], ABC):
+class GameNetAgent(Agent[_S, _A]):
     net: GameNet[_S, _A]
 
     def __init__(self, net: GameNet[_S, _A]):
