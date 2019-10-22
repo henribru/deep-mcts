@@ -1,14 +1,24 @@
 from abc import ABC, abstractmethod
-from typing import Callable, Dict, Tuple, TypeVar, Sequence, Generic, Mapping, Type, Any
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generic,
+    Mapping,
+    Sequence,
+    Tuple,
+    Type,
+    TypeVar,
+    TYPE_CHECKING,
+)
 
 import numpy as np
-import torch.optim.optimizer
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch
+import torch.optim.optimizer
 
-from deep_mcts.game import State, Player
-
+from deep_mcts.game import Player, State
 from deep_mcts.tournament import Agent
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")

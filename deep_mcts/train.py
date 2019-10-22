@@ -59,6 +59,7 @@ def train(
     num_simulations: int,
     save_interval: int,
     evaluation_interval: int,
+    save_dir: str,
     rollout_policy: Optional[Callable[[_S], _A]] = None,
 ) -> Iterable[
     Tuple[
@@ -68,7 +69,7 @@ def train(
     ]
 ]:
     replay_buffer = Deque[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]([], 100_000)
-    game_net.save(f"saves/anet-0.pth")
+    game_net.save(f"{save_dir}/anet-0.pth")
     previous_net = game_net.copy()
     epsilon = 0.05
     multiprocessing.set_start_method("spawn")
@@ -184,7 +185,7 @@ def train(
             prev_evaluation_time = time.perf_counter()
             yield i + 1, random_mcts_evaluation, previous_evaluation
         if save_interval != 0 and (i + 1) % save_interval == 0:
-            filepath = f"saves/anet-{i + 1}.pth"
+            filepath = f"{save_dir}/anet-{i + 1}.pth"
             game_net.save(filepath)
             print(f"Saved {filepath}")
         i += 1

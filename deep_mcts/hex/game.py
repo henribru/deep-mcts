@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Dict, Tuple, List, Iterable, MutableSet, Optional, Set
 
 from deep_mcts.mcts import MCTS
-from deep_mcts.game import GameManager, Player, State, CellState
+from deep_mcts.game import GameManager, Player, State, CellState, Outcome
 
 
 @dataclass(frozen=True)
@@ -47,14 +47,6 @@ class HexManager(GameManager[HexState, HexAction]):
             ],
         )
 
-    def generate_child_states(self, state: HexState) -> Dict[HexAction, HexState]:
-        child_states = {
-            action: self.generate_child_state(state, action)
-            for action in self.legal_actions(state)
-        }
-        assert set(child_states.keys()) == set(self.legal_actions(state))
-        return child_states
-
     def generate_child_state(self, state: HexState, action: HexAction) -> HexState:
         assert action in self.legal_actions(state)
         x, y = action.coordinate
@@ -62,12 +54,12 @@ class HexManager(GameManager[HexState, HexAction]):
             state.player.opposite(),
             [
                 [
-                    CellState(state.player) if (i, j) == (x, y) else state.grid[j][i]
-                    for i in range(self.grid_size)
+                    CellState(state.player) if (j, i) == (x, y) else cell
+                    for j, cell in enumerate(row)
                 ]
-                if j == y
-                else state.grid[j]
-                for j in range(self.grid_size)
+                if i == y
+                else row
+                for i, row in enumerate(state.grid)
             ],
         )
 
@@ -80,7 +72,7 @@ class HexManager(GameManager[HexState, HexAction]):
         ]
 
     def is_final_state(self, state: HexState) -> bool:
-        return self.evaluate_final_state(state) != 0
+        return self.evaluate_final_state(state) != Outcome.DRAW
 
     def evaluate_final_state(self, state: HexState) -> int:
         starts = (
@@ -93,7 +85,7 @@ class HexManager(GameManager[HexState, HexAction]):
             self._traverse_from(start, Player.SECOND, state, visited)
             for start in starts
         ):
-            return 1
+            return Outcome.SECOND_PLAYER_WIN
         starts = (
             (x, 0)
             for x in range(self.grid_size)
@@ -102,8 +94,8 @@ class HexManager(GameManager[HexState, HexAction]):
         if any(
             self._traverse_from(start, Player.FIRST, state, visited) for start in starts
         ):
-            return -1
-        return 0
+            return Outcome.FIRST_PLAYER_WIN
+        return Outcome.DRAW
 
     def _traverse_from(
         self,
@@ -159,7 +151,7 @@ def hex_simulator(grid_size: int, num_simulations: int) -> None:
         print(state)
         print("-" * 5)
     print(next_state)
-    print(state.player)
+    print(manager.evaluate_final_state(next_state))
 
 
 def hex_probabilities_grid(action_probabilities, grid_size):

@@ -31,6 +31,12 @@ class CellState(IntEnum):
             return CellState.FIRST_PLAYER
 
 
+class Outcome(IntEnum):
+    FIRST_PLAYER_WIN = -1
+    SECOND_PLAYER_WIN = 1
+    DRAW = 0
+
+
 @dataclass(frozen=True)
 class State:
     player: Player
@@ -45,9 +51,13 @@ class GameManager(ABC, Generic[_S, _A]):
     def initial_game_state(self) -> _S:
         ...
 
-    @abstractmethod
     def generate_child_states(self, state: _S) -> Dict[_A, _S]:
-        ...
+        child_states = {
+            action: self.generate_child_state(state, action)
+            for action in self.legal_actions(state)
+        }
+        assert set(child_states.keys()) == set(self.legal_actions(state))
+        return child_states
 
     @abstractmethod
     def generate_child_state(self, state: _S, action: _A) -> _S:

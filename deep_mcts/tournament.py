@@ -3,7 +3,7 @@ import random
 from abc import ABC, abstractmethod
 from typing import Tuple, List, TypeVar, Sequence, Generic, TYPE_CHECKING
 
-from deep_mcts.game import State
+from deep_mcts.game import State, Outcome
 
 _S = TypeVar("_S", bound=State)
 _A = TypeVar("_A")
@@ -62,17 +62,17 @@ def compare_agents(
     for k in range(num_games):
         if k % 2 == 0:
             result = play(players, game_manager)
-            if result == -1:
+            if result == Outcome.FIRST_PLAYER_WIN:
                 first_player_wins += 1
-            elif result == 1:
+            elif result == Outcome.SECOND_PLAYER_WIN:
                 first_player_losses += 1
             else:
-                first_player_draws += 1
+                first_player_draws += Outcome.DRAW
         else:
-            result = -play((players[1], players[0]), game_manager)
-            if result == -1:
+            result = play((players[1], players[0]), game_manager)
+            if result == Outcome.SECOND_PLAYER_WIN:
                 second_player_wins += 1
-            elif result == 1:
+            elif result == Outcome.FIRST_PLAYER_WIN:
                 second_player_losses += 1
             else:
                 second_player_draws += 1
