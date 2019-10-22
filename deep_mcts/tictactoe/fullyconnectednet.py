@@ -7,8 +7,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim
 
+from deep_mcts.game import Player
 from deep_mcts.gamenet import GameNet, DEVICE
-from deep_mcts.tictactoe.game import TicTacToeState, TicTacToeAction, TicTacToeManager
+from deep_mcts.tictactoe.game import (
+    TicTacToeState,
+    TicTacToeAction,
+    TicTacToeManager,
+    CellState,
+)
 
 if TYPE_CHECKING:
     TensorPairModule = nn.Module[Tuple[torch.Tensor, torch.Tensor]]
@@ -50,7 +56,9 @@ class FullyConnectedTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
         self, states: Sequence[TicTacToeState], output: torch.Tensor
     ) -> torch.Tensor:
         states = np.stack([state.grid for state in states], axis=0).reshape(-1, 9)
-        legal_moves = torch.as_tensor(states == -1, dtype=torch.float32, device=DEVICE)
+        legal_moves = torch.as_tensor(
+            states == CellState.EMPTY, dtype=torch.float32, device=DEVICE
+        )
         assert legal_moves.shape == output.shape
         result = output * legal_moves
         assert result.shape == output.shape
@@ -112,8 +120,8 @@ class FullyConnectedTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
         grids = np.stack([state.grid for state in states]).reshape((len(states), -1))
         for i in range(len(states)):
             assert np.all(grids[i, :] == np.array(states[i].grid).flatten())
-        first_player = grids == 0
-        second_player = grids == 1
+        first_player = grids == Player.FIRST
+        second_player = grids == Player.SECOND
         assert np.all((first_player.sum(axis=1) - second_player.sum(axis=1)) <= 1)
         # TODO: Make current player come first instead of always player 0?
         states = np.concatenate((first_player, second_player, players), axis=1)

@@ -1,15 +1,15 @@
 import random
 import string
-
 from dataclasses import dataclass
 from typing import Dict, Tuple, List, Iterable, MutableSet, Optional, Set
 
-from deep_mcts.mcts import State, Action, GameManager, MCTS
+from deep_mcts.mcts import MCTS
+from deep_mcts.game import GameManager, Player, State, CellState
 
 
 @dataclass(frozen=True)
 class HexState(State):
-    grid: List[List[int]]
+    grid: List[List[CellState]]
 
     def __str__(self) -> str:
         symbol = {-1: ".", 0: "0", 1: "1"}
@@ -27,7 +27,7 @@ class HexState(State):
 
 
 @dataclass(frozen=True)
-class HexAction(Action):
+class HexAction:
     coordinate: Tuple[int, int]
 
 
@@ -40,40 +40,32 @@ class HexManager(GameManager[HexState, HexAction]):
 
     def initial_game_state(self) -> HexState:
         return HexState(
-            1, [[-1 for _ in range(self.grid_size)] for _ in range(self.grid_size)]
+            Player.FIRST,
+            [
+                [CellState.EMPTY for _ in range(self.grid_size)]
+                for _ in range(self.grid_size)
+            ],
         )
 
     def generate_child_states(self, state: HexState) -> Dict[HexAction, HexState]:
         child_states = {
-            HexAction((x, y)): HexState(
-                (state.player + 1) % 2,
-                [
-                    [
-                        state.player if (i, j) == (x, y) else state.grid[j][i]
-                        for i in range(self.grid_size)
-                    ]
-                    if j == y
-                    else state.grid[j]
-                    for j in range(self.grid_size)
-                ],
-            )
-            for y in range(self.grid_size)
-            for x in range(self.grid_size)
-            if state.grid[y][x] == -1
+            action: self.generate_child_state(state, action)
+            for action in self.legal_actions(state)
         }
         assert set(child_states.keys()) == set(self.legal_actions(state))
         return child_states
 
     def generate_child_state(self, state: HexState, action: HexAction) -> HexState:
         assert action in self.legal_actions(state)
+        x, y = action.coordinate
         return HexState(
-            (state.player + 1) % 2,
+            state.player.opposite(),
             [
                 [
-                    state.player if (i, j) == action.coordinate else state.grid[j][i]
+                    CellState(state.player) if (i, j) == (x, y) else state.grid[j][i]
                     for i in range(self.grid_size)
                 ]
-                if j == action.coordinate[1]
+                if j == y
                 else state.grid[j]
                 for j in range(self.grid_size)
             ],
@@ -84,26 +76,39 @@ class HexManager(GameManager[HexState, HexAction]):
             HexAction((x, y))
             for y in range(self.grid_size)
             for x in range(self.grid_size)
-            if state.grid[y][x] == -1
+            if state.grid[y][x] == CellState.EMPTY
         ]
 
     def is_final_state(self, state: HexState) -> bool:
         return self.evaluate_final_state(state) != 0
 
     def evaluate_final_state(self, state: HexState) -> int:
-        starts = ((0, y) for y in range(self.grid_size) if state.grid[y][0] == 0)
-        visited = Set[Tuple[int, int]]()
-        if any(self._traverse_from(start, 0, state, visited) for start in starts):
+        starts = (
+            (0, y)
+            for y in range(self.grid_size)
+            if state.grid[y][0] == CellState.SECOND_PLAYER
+        )
+        visited: Set[Tuple[int, int]] = set()
+        if any(
+            self._traverse_from(start, Player.SECOND, state, visited)
+            for start in starts
+        ):
             return 1
-        starts = ((x, 0) for x in range(self.grid_size) if state.grid[0][x] == 1)
-        if any(self._traverse_from(start, 1, state, visited) for start in starts):
+        starts = (
+            (x, 0)
+            for x in range(self.grid_size)
+            if state.grid[0][x] == CellState.FIRST_PLAYER
+        )
+        if any(
+            self._traverse_from(start, Player.FIRST, state, visited) for start in starts
+        ):
             return -1
         return 0
 
     def _traverse_from(
         self,
         coordinate: Tuple[int, int],
-        player: int,
+        player: Player,
         state: HexState,
         visited: Optional[MutableSet[Tuple[int, int]]] = None,
     ) -> bool:
@@ -114,9 +119,9 @@ class HexManager(GameManager[HexState, HexAction]):
         visited.add(coordinate)
         x, y = coordinate
         if (
-            player == 0
+            player == Player.SECOND
             and x == self.grid_size - 1
-            or player == 1
+            or player == Player.FIRST
             and y == self.grid_size - 1
         ):
             return True

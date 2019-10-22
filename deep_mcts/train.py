@@ -1,18 +1,18 @@
-import queue
 import random
 import time
 from typing import Iterable, Tuple, Optional, TypeVar, Callable, Deque, Dict, List
 
 import torch
-from torch import multiprocessing
 
-from deep_mcts.game import State, Action, GameManager
+from deep_mcts.game import State, GameManager
 from deep_mcts.gamenet import GameNet, DEVICE
-from deep_mcts.mcts import MCTS, MCTSAgent
+from deep_mcts.mcts import MCTS, MCTSAgent, Player
 from deep_mcts.tournament import RandomAgent, compare_agents
+from torch import multiprocessing
+import queue
 
 _S = TypeVar("_S", bound=State)
-_A = TypeVar("_A", bound=Action)
+_A = TypeVar("_A")
 
 
 def create_self_play_examples(
@@ -40,7 +40,11 @@ def create_self_play_examples(
         outcome = game_manager.evaluate_final_state(next_state)
         games_queue.put(
             [
-                (state, visit_distribution, outcome if state.player == 0 else -outcome)
+                (
+                    state,
+                    visit_distribution,
+                    outcome if state.player == Player.SECOND else -outcome,
+                )
                 for state, visit_distribution in examples
             ]
         )

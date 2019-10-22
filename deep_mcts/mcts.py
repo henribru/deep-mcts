@@ -1,25 +1,16 @@
 import random
 from abc import abstractmethod, ABC
-from typing import (
-    Callable,
-    Dict,
-    List,
-    Tuple,
-    Iterable,
-    TypeVar,
-    Generic,
-    Optional,
-    Mapping,
-)
+from typing import Callable, Dict, List, Tuple, Iterable, TypeVar, Generic, Optional
 from math import sqrt
 import numpy as np
 import typing
 
-from deep_mcts.game import GameManager, State, Action
+from deep_mcts.game import GameManager, State, Player
 from deep_mcts.tournament import Agent
 
+
 _S = TypeVar("_S", bound=State)
-_A = TypeVar("_A", bound=Action)
+_A = TypeVar("_A")
 
 
 class Node(Generic[_S, _A]):
@@ -76,7 +67,7 @@ class MCTS(Generic[_S, _A]):
         path = [self.root]
         node = self.root
         while node.children:
-            if node.state.player == 0:
+            if node.state.player == Player.SECOND:
                 node = max(node.children.values(), key=lambda n: n.Q + n.u(node))
             else:
                 node = min(node.children.values(), key=lambda n: n.Q - n.u(node))

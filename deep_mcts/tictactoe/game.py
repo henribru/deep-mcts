@@ -2,43 +2,32 @@ import random
 from typing import List, Dict, Tuple, Iterable
 from dataclasses import dataclass
 
-from deep_mcts.game import GameManager, Action, State
+from deep_mcts.game import GameManager, State, Player, CellState
 from deep_mcts.mcts import MCTS
 
 
 @dataclass(frozen=True)
 class TicTacToeState(State):
-    grid: List[List[int]]
+    grid: List[List[CellState]]
 
 
 @dataclass(frozen=True)
-class TicTacToeAction(Action):
+class TicTacToeAction:
     coordinate: Tuple[int, int]
 
 
 class TicTacToeManager(GameManager[TicTacToeState, TicTacToeAction]):
     def initial_game_state(self) -> TicTacToeState:
-        return TicTacToeState(0, [[-1 for _ in range(3)] for _ in range(3)])
+        return TicTacToeState(
+            Player.FIRST, [[CellState.EMPTY for _ in range(3)] for _ in range(3)]
+        )
 
     def generate_child_states(
         self, state: TicTacToeState
     ) -> Dict[TicTacToeAction, TicTacToeState]:
         child_states = {
-            TicTacToeAction((x, y)): TicTacToeState(
-                (state.player + 1) % 2,
-                [
-                    [
-                        state.player if (i, j) == (x, y) else state.grid[j][i]
-                        for i in range(3)
-                    ]
-                    if j == y
-                    else state.grid[j]
-                    for j in range(3)
-                ],
-            )
-            for y in range(3)
-            for x in range(3)
-            if state.grid[y][x] == -1
+            action: self.generate_child_state(state, action)
+            for action in self.legal_actions(state)
         }
         assert set(child_states.keys()) == set(self.legal_actions(state))
         return child_states
@@ -47,14 +36,15 @@ class TicTacToeManager(GameManager[TicTacToeState, TicTacToeAction]):
         self, state: TicTacToeState, action: TicTacToeAction
     ) -> TicTacToeState:
         assert action in self.legal_actions(state)
+        x, y = action.coordinate
         return TicTacToeState(
-            (state.player + 1) % 2,
+            state.player.opposite(),
             [
                 [
-                    state.player if (i, j) == action.coordinate else state.grid[j][i]
+                    CellState(state.player) if (i, j) == (x, y) else state.grid[j][i]
                     for i in range(3)
                 ]
-                if j == action.coordinate[1]
+                if j == y
                 else state.grid[j]
                 for j in range(3)
             ],
@@ -65,16 +55,19 @@ class TicTacToeManager(GameManager[TicTacToeState, TicTacToeAction]):
             TicTacToeAction((x, y))
             for y in range(3)
             for x in range(3)
-            if state.grid[y][x] == -1
+            if state.grid[y][x] == CellState.EMPTY
         ]
 
     def is_final_state(self, state: TicTacToeState) -> bool:
         return self.evaluate_final_state(state) != 0 or all(
-            all(p != -1 for p in row) for row in state.grid
+            all(p != CellState.EMPTY for p in row) for row in state.grid
         )
 
     def evaluate_final_state(self, state: TicTacToeState) -> int:
-        for player, outcome in [(0, 1), (1, -1)]:
+        for player, outcome in [
+            (CellState.SECOND_PLAYER, 1),
+            (CellState.FIRST_PLAYER, -1),
+        ]:
             if (
                 any(all(p == player for p in state.grid[y]) for y in range(3))
                 or any(
@@ -88,18 +81,12 @@ class TicTacToeManager(GameManager[TicTacToeState, TicTacToeAction]):
 
 
 def tic_tac_toe_simulator(num_simulations: int) -> None:
-    def state_evaluator(
-        state: TicTacToeState
-    ) -> Tuple[float, Dict[TicTacToeAction, float]]:
-        legal_actions = manager.legal_actions(state)
-        return 0, {action: 1 / len(legal_actions) for action in legal_actions}
-
     manager = TicTacToeManager()
     mcts = MCTS(
         manager,
         num_simulations,
         lambda state: random.choice(manager.legal_actions(state)),
-        state_evaluator,
+        None,
     )
     for state, next_state, action, _ in mcts.self_play():
         print(action.coordinate)

@@ -7,7 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch
 
-from deep_mcts.mcts import Action, State
+from deep_mcts.game import State, Player
 
 from deep_mcts.tournament import Agent
 
@@ -32,7 +32,7 @@ def cross_entropy(
 
 
 _S = TypeVar("_S", bound=State)
-_A = TypeVar("_A", bound=Action)
+_A = TypeVar("_A")
 _T = TypeVar("_T", bound="GameNet")  # type: ignore
 
 
@@ -53,7 +53,7 @@ class GameNet(ABC, Generic[_S, _A]):
         value = torch.tanh(value)
         # The output value is from the perspective of the current player,
         # but MCTS expects it to be independent of the player
-        if state.player == 1:
+        if state.player == Player.FIRST:
             value = -value
         shape = probabilities.shape
         assert probabilities.shape == shape

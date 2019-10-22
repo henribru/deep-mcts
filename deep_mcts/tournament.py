@@ -3,11 +3,11 @@ import random
 from abc import ABC, abstractmethod
 from typing import Tuple, List, TypeVar, Sequence, Generic
 
-from deep_mcts.game import State, Action
+from deep_mcts.game import State
 from deep_mcts.mcts import GameManager
 
 _S = TypeVar("_S", bound=State)
-_A = TypeVar("_A", bound=Action)
+_A = TypeVar("_A")
 
 
 class Agent(ABC, Generic[_S, _A]):

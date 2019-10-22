@@ -8,7 +8,12 @@ import torch.nn.functional as F
 import torch.optim
 
 from deep_mcts.gamenet import GameNet, DEVICE
-from deep_mcts.tictactoe.game import TicTacToeAction, TicTacToeState, TicTacToeManager
+from deep_mcts.tictactoe.game import (
+    TicTacToeAction,
+    TicTacToeState,
+    TicTacToeManager,
+    CellState,
+)
 
 if TYPE_CHECKING:
     TensorModule = nn.Module[torch.Tensor]
@@ -156,7 +161,9 @@ class ConvolutionalTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
         self, states: Sequence[TicTacToeState], output: torch.Tensor
     ) -> torch.Tensor:
         states = np.stack([state.grid for state in states], axis=0)
-        legal_moves = torch.as_tensor(states == -1, dtype=torch.float32, device=DEVICE)
+        legal_moves = torch.as_tensor(
+            states == CellState.EMPTY, dtype=torch.float32, device=DEVICE
+        )
         assert legal_moves.shape == output.shape
         result = output * legal_moves
         assert result.shape == output.shape
@@ -219,7 +226,7 @@ class ConvolutionalTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
             (-1, 1, 1)
         )
         other_player = grids == np.array(
-            [0 if state.player == 1 else 1 for state in states]
+            [state.player.opposite() for state in states]
         ).reshape((-1, 1, 1))
         #  assert np.all((first_player.sum(axis=1) - second_player.sum(axis=1)) <= 1)
         tensor = torch.as_tensor(
