@@ -81,18 +81,21 @@ class ResidualBlock(TensorModule):
 
 
 class PolicyHead(TensorModule):
-    def __init__(self, in_channels: int) -> None:
+    def __init__(self, grid_size: int, in_channels: int) -> None:
         super().__init__()
+        self.grid_size = grid_size
         self.conv1 = ConvolutionalBlock(
             in_channels=in_channels, out_channels=in_channels, kernel_size=3, padding=1
         )
-        self.conv2 = nn.Conv2d(
-            in_channels=in_channels, out_channels=1, kernel_size=3, padding=1
+        self.fc1 = nn.Linear(
+            in_features=in_channels * grid_size ** 2, out_features=grid_size ** 2
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:  # type: ignore[override]
         x = self.conv1(x)
-        x = self.conv2(x)
+        x = self.fc1(x.reshape((x.shape[0], -1))).reshape(
+            (-1, 1, self.grid_size, self.grid_size)
+        )
         return x
 
 
@@ -114,10 +117,10 @@ class ValueHead(TensorModule):
 
 
 class ConvolutionalTicTacToeModule(TensorPairModule):
-    def __init__(self, num_residual: int, channels: int) -> None:
+    def __init__(self, num_residual: int, in_channels: int, channels: int) -> None:
         super().__init__()
         self.conv1 = ConvolutionalBlock(
-            in_channels=3, out_channels=channels, kernel_size=3, padding=1
+            in_channels=in_channels, out_channels=channels, kernel_size=3, padding=1
         )
         self.residual_blocks = torch.nn.ModuleList(
             [
@@ -130,14 +133,14 @@ class ConvolutionalTicTacToeModule(TensorPairModule):
                 for _ in range(num_residual)
             ]
         )
-        self.policy_head = PolicyHead(channels)
+        self.policy_head = PolicyHead(3, channels)
         self.value_head = ValueHead(3, channels, hidden_units=64)
 
     def forward(  # type: ignore[override]
         self, x: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         input = x
-        assert input.shape == (input.shape[0], 3, input.shape[2], input.shape[3])
+        # assert len(input.shape) == 4 and input.shape[1] == 3
         x = self.conv1(x)
         for (
             residual_block
@@ -157,7 +160,9 @@ class ConvolutionalTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
 
     def __init__(self) -> None:
         super().__init__()
-        self.net = ConvolutionalTicTacToeModule(num_residual=3, channels=16).to(DEVICE)
+        self.net = ConvolutionalTicTacToeModule(
+            num_residual=3, in_channels=3, channels=16
+        ).to(DEVICE)
         self.manager = TicTacToeManager()
         self.optimizer = torch.optim.SGD(self.net.parameters(), lr=0.01, momentum=0.9)
 
@@ -175,9 +180,7 @@ class ConvolutionalTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
         _, action_probabilities = self.forward(state)
         action_probabilities = action_probabilities[0, :, :]
         assert action_probabilities.shape == (3, 3)
-        action = np.random.choice(
-            3 ** 2, p=action_probabilities.flatten()
-        )
+        action = np.random.choice(3 ** 2, p=action_probabilities.flatten())
         y, x = np.unravel_index(action, action_probabilities.shape)
         action = TicTacToeAction((x, y))
         assert action in self.manager.legal_actions(state)
@@ -210,9 +213,12 @@ class ConvolutionalTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
             for y in range(3)
             for x in range(3)
         }
-        assert set(
-            action for action, probability in actions.items() if probability != 0
-        ) == set(self.manager.legal_actions(state))
+        legal_actions = set(self.manager.legal_actions(state))
+        assert all(
+            action in legal_actions
+            for action, probability in actions.items()
+            if probability != 0
+        )
         return value, actions
 
     def state_to_tensor(self, state: TicTacToeState) -> torch.Tensor:

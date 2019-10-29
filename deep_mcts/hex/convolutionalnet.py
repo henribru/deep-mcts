@@ -78,21 +78,21 @@ class ResidualBlock(TensorModule):
 
 
 class PolicyHead(TensorModule):
-    def __init__(self, in_channels: int) -> None:
+    def __init__(self, grid_size: int, in_channels: int) -> None:
         super().__init__()
+        self.grid_size = grid_size
         self.conv1 = ConvolutionalBlock(
             in_channels=in_channels, out_channels=in_channels, kernel_size=3, padding=1
         )
-        self.bn1 = nn.BatchNorm2d(in_channels)
-        self.conv2 = nn.Conv2d(
-            in_channels=in_channels, out_channels=1, kernel_size=3, padding=1
+        self.fc1 = nn.Linear(
+            in_features=in_channels * grid_size ** 2, out_features=grid_size ** 2
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:  # type: ignore[override]
         x = self.conv1(x)
-        x = self.bn1(x)
-        x = F.relu(x)
-        x = self.conv2(x)
+        x = self.fc1(x.reshape((x.shape[0], -1))).reshape(
+            (-1, 1, self.grid_size, self.grid_size)
+        )
         return x
 
 
@@ -102,14 +102,11 @@ class ValueHead(TensorModule):
         self.conv1 = ConvolutionalBlock(
             in_channels=in_channels, out_channels=1, kernel_size=1, padding=0
         )
-        self.bn1 = nn.BatchNorm2d(1)
         self.fc1 = nn.Linear(in_features=grid_size ** 2, out_features=hidden_units)
         self.fc2 = nn.Linear(in_features=hidden_units, out_features=1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:  # type: ignore[override]
         x = self.conv1(x)
-        x = self.bn1(x)
-        x = F.relu(x)
         x = self.fc1(x.reshape((x.shape[0], -1)))
         x = F.relu(x)
         x = self.fc2(x)
@@ -117,10 +114,12 @@ class ValueHead(TensorModule):
 
 
 class ConvolutionalHexModule(TensorPairModule):
-    def __init__(self, num_residual: int, grid_size: int, channels: int) -> None:
+    def __init__(
+        self, num_residual: int, grid_size: int, in_channels: int, channels: int
+    ) -> None:
         super().__init__()
         self.conv1 = ConvolutionalBlock(
-            in_channels=3, out_channels=channels, kernel_size=3, padding=1
+            in_channels=in_channels, out_channels=channels, kernel_size=3, padding=1
         )
         self.residual_blocks = torch.nn.ModuleList(
             [
@@ -133,14 +132,14 @@ class ConvolutionalHexModule(TensorPairModule):
                 for _ in range(num_residual)
             ]
         )
-        self.policy_head = PolicyHead(channels)
-        self.value_head = ValueHead(grid_size, channels, hidden_units=64)
+        self.policy_head = PolicyHead(grid_size, channels)
+        self.value_head = ValueHead(grid_size, channels, hidden_units=1024)
 
     def forward(  # type: ignore[override]
         self, x: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         input = x
-        assert input.shape == (input.shape[0], 3, input.shape[2], input.shape[3])
+        # assert len(input.shape) == 4 and input.shape[1] == 3
         x = self.conv1(x)
         for (
             residual_block
@@ -162,7 +161,7 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
     def __init__(self, grid_size: int) -> None:
         super().__init__()
         self.net = ConvolutionalHexModule(
-            num_residual=1, grid_size=grid_size, channels=64
+            num_residual=1, grid_size=grid_size, in_channels=3, channels=128
         ).to(DEVICE)
         self.grid_size = grid_size
         self.hex_manager = HexManager(grid_size)
@@ -196,9 +195,7 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
         _, action_probabilities = self.forward(state)
         action_probabilities = action_probabilities[0, :, :]
         assert action_probabilities.shape == (self.grid_size, self.grid_size)
-        action = np.random.choice(
-            self.grid_size ** 2, p=action_probabilities.flatten()
-        )
+        action = np.random.choice(self.grid_size ** 2, p=action_probabilities.flatten())
         y, x = np.unravel_index(action, action_probabilities.shape)
         action = HexAction((x, y))
         assert action in self.hex_manager.legal_actions(state)
