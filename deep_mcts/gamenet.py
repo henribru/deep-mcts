@@ -47,6 +47,7 @@ class GameNet(ABC, Generic[_S, _A]):
         self.value_criterion = nn.MSELoss().to(DEVICE)  # type: ignore[assignment, misc]
 
     def forward(self, state: _S) -> Tuple[float, torch.Tensor]:
+        self.net.eval()
         states = self.state_to_tensor(state).to(DEVICE)
         with torch.autograd.no_grad():
             value, probabilities = self.net.forward(states.float())
@@ -95,6 +96,7 @@ class GameNet(ABC, Generic[_S, _A]):
         probability_targets: torch.Tensor,
         value_targets: torch.Tensor,
     ) -> None:
+        self.net.train()
         values, probabilities = self.net.forward(states.float())
         values = torch.tanh(values)
         assert probabilities.shape[0] == states.shape[0]

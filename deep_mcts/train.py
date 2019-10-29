@@ -48,8 +48,8 @@ def create_self_play_examples(
                 for state, visit_distribution in examples
             ]
         )
-        if i % 100 == 0:
-            print(process_number, i)
+        if i % 100 == 0 and process_number == 0:
+            print(i)
 
 
 def train(
@@ -65,19 +65,8 @@ def train(
 ]:
     replay_buffer = Deque[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]([], 100_000)
     game_net.save(f"saves/anet-0.pth")
-    random_opponent = RandomAgent(game_manager)
-    original_opponent = game_net.copy()
+    previous_net = game_net.copy()
     epsilon = 0.05
-    original_agent = MCTSAgent(
-        MCTS(
-            game_manager,
-            num_simulations,
-            rollout_policy,
-            state_evaluator=original_opponent.evaluate_state,
-            epsilon=epsilon,
-        )
-    )
-    previous_agent: Optional[MCTSAgent[_S, _A]] = None
     multiprocessing.set_start_method("spawn")
     games_queue: "multiprocessing.Queue[List[Tuple[_S, Dict[_A, float], float]]]" = multiprocessing.Queue()
     spawn_context = multiprocessing.spawn(
@@ -135,35 +124,21 @@ def train(
         value_targets = torch.stack(value_targets).to(DEVICE)  # type: ignore[arg-type]
         game_net.train(states, probability_targets, value_targets)
         if evaluation_interval != 0 and (i + 1) % evaluation_interval == 0:
-            game_net.net.eval()
             print("evaluating")
-            best_agent = MCTSAgent(
-                MCTS(
-                    game_manager,
-                    100,
-                    rollout_policy,
-                    state_evaluator=game_net.evaluate_state,
-                )
-            )
-            sampling_agent = MCTSAgent(
-                MCTS(
-                    game_manager,
-                    100,
-                    rollout_policy,
-                    state_evaluator=game_net.evaluate_state,
-                    epsilon=epsilon,
-                )
-            )
-            random_evaluation = compare_agents(
-                (best_agent, random_opponent), 20, game_manager
-            )
             random_mcts_evaluation = compare_agents(
                 (
-                    best_agent,
                     MCTSAgent(
                         MCTS(
                             game_manager,
                             num_simulations,
+                            rollout_policy,
+                            state_evaluator=game_net.evaluate_state,
+                        )
+                    ),
+                    MCTSAgent(
+                        MCTS(
+                            game_manager,
+                            num_simulations * 4,
                             lambda s: random.choice(game_manager.legal_actions(s)),
                             state_evaluator=None,
                         )
@@ -172,31 +147,38 @@ def train(
                 20,
                 game_manager,
             )
-            original_evaluation = compare_agents(
-                (sampling_agent, original_agent), 20, game_manager
+            previous_evaluation = compare_agents(
+                (
+                    MCTSAgent(
+                        MCTS(
+                            game_manager,
+                            num_simulations,
+                            rollout_policy,
+                            state_evaluator=game_net.evaluate_state,
+                            epsilon=epsilon,
+                        )
+                    ),
+                    MCTSAgent(
+                        MCTS(
+                            game_manager,
+                            num_simulations,
+                            rollout_policy,
+                            state_evaluator=previous_net.evaluate_state,
+                            epsilon=epsilon,
+                        )
+                    ),
+                ),
+                20,
+                game_manager,
             )
-            previous_evaluation = (
-                compare_agents((sampling_agent, previous_agent), 20, game_manager)
-                if previous_agent is not None
-                else original_evaluation
-            )
-            previous_agent = MCTSAgent(
-                MCTS(
-                    game_manager,
-                    num_simulations,
-                    rollout_policy,
-                    state_evaluator=game_net.copy().evaluate_state,
-                    epsilon=epsilon,
-                )
-            )
+            previous_net = game_net.copy()
             print(
-                f"i: {i + 1}, t: {time.perf_counter() - prev_evaluation_time} random: {random_evaluation} "
-                f"previous: {previous_evaluation} original: {original_evaluation} random MCTS: {random_mcts_evaluation} "
+                f"i: {i + 1}, t: {time.perf_counter() - prev_evaluation_time:.0f} "
+                f"previous: {previous_evaluation} random MCTS: {random_mcts_evaluation} "
                 f"moves: {len(replay_buffer)}"
             )
             prev_evaluation_time = time.perf_counter()
-            game_net.net.train()
-            yield i + 1, random_evaluation, previous_evaluation
+            yield i + 1, random_mcts_evaluation, previous_evaluation
         if save_interval != 0 and (i + 1) % save_interval == 0:
             filepath = f"saves/anet-{i + 1}.pth"
             game_net.save(filepath)
