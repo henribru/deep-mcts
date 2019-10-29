@@ -125,12 +125,14 @@ def train(
                 )
             # print(len(replay_buffer) / (time.perf_counter() - start_time))
         examples = random.sample(replay_buffer, min(512, len(replay_buffer)))
-        states, probability_targets, value_targets = zip(*examples)  # type: ignore
-        states = torch.stack(states).to(DEVICE)  # type: ignore
-        probability_targets = torch.stack(probability_targets).to(  # type: ignore
-            DEVICE
+        states, probability_targets, value_targets = zip(  # type: ignore[assignment]
+            *examples
         )
-        value_targets = torch.stack(value_targets).to(DEVICE)  # type: ignore
+        states = torch.stack(states).to(DEVICE)  # type: ignore[arg-type]
+        probability_targets = torch.stack(
+            probability_targets  # type: ignore[arg-type]
+        ).to(DEVICE)
+        value_targets = torch.stack(value_targets).to(DEVICE)  # type: ignore[arg-type]
         game_net.train(states, probability_targets, value_targets)
         if evaluation_interval != 0 and (i + 1) % evaluation_interval == 0:
             game_net.net.eval()

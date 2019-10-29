@@ -36,7 +36,7 @@ class ConvolutionalBlock(TensorModule):
         )
         self.bn1 = nn.BatchNorm2d(out_channels)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:  # type: ignore
+    def forward(self, x: torch.Tensor) -> torch.Tensor:  # type: ignore[override]
         x = self.conv1(x)
         x = self.bn1(x)
         x = F.relu(x)
@@ -56,7 +56,7 @@ class ResidualBlock(TensorModule):
         self.bn2 = nn.BatchNorm2d(out_channels)
         self.projection = nn.Conv2d(in_channels, out_channels, kernel_size=1)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:  # type: ignore
+    def forward(self, x: torch.Tensor) -> torch.Tensor:  # type: ignore[override]
         input = x
         assert input.shape == (
             input.shape[0],
@@ -90,7 +90,7 @@ class PolicyHead(TensorModule):
             in_channels=in_channels, out_channels=1, kernel_size=3, padding=1
         )
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:  # type: ignore
+    def forward(self, x: torch.Tensor) -> torch.Tensor:  # type: ignore[override]
         x = self.conv1(x)
         x = self.conv2(x)
         return x
@@ -105,7 +105,7 @@ class ValueHead(TensorModule):
         self.fc1 = nn.Linear(in_features=grid_size ** 2, out_features=hidden_units)
         self.fc2 = nn.Linear(in_features=hidden_units, out_features=1)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:  # type: ignore
+    def forward(self, x: torch.Tensor) -> torch.Tensor:  # type: ignore[override]
         x = self.conv1(x)
         x = self.fc1(x.reshape((x.shape[0], -1)))
         x = F.relu(x)
@@ -133,13 +133,17 @@ class ConvolutionalTicTacToeModule(TensorPairModule):
         self.policy_head = PolicyHead(channels)
         self.value_head = ValueHead(3, channels, hidden_units=64)
 
-    def forward(  # type: ignore
+    def forward(  # type: ignore[override]
         self, x: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         input = x
         assert input.shape == (input.shape[0], 3, input.shape[2], input.shape[3])
         x = self.conv1(x)
-        for residual_block in self.residual_blocks:  # type: ignore
+        for (
+            residual_block
+        ) in (
+            self.residual_blocks  # type: ignore # https://github.com/pytorch/pytorch/pull/27445
+        ):
             x = residual_block(x)
         value, probabilities = self.value_head(x), self.policy_head(x)
         probabilities = probabilities.squeeze(1)

@@ -29,7 +29,7 @@ class FullyConnectedTicTacToeModule(TensorPairModule):
         self.value_head = nn.Linear(128, 1)
         self.policy_head = nn.Linear(128, 3 ** 2)
 
-    def forward(  # type: ignore
+    def forward(  # type: ignore[override]
         self, x: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         input = x

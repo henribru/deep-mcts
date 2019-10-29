@@ -33,7 +33,7 @@ def cross_entropy(
 
 _S = TypeVar("_S", bound=State)
 _A = TypeVar("_A")
-_T = TypeVar("_T", bound="GameNet")  # type: ignore
+_T = TypeVar("_T", bound="GameNet")  # type: ignore[type-arg]
 
 
 class GameNet(ABC, Generic[_S, _A]):
@@ -43,8 +43,8 @@ class GameNet(ABC, Generic[_S, _A]):
     optimizer: "torch.optim.optimizer.Optimizer"
 
     def __init__(self) -> None:
-        self.policy_criterion = cross_entropy  # type: ignore
-        self.value_criterion = nn.MSELoss().to(DEVICE)  # type: ignore
+        self.policy_criterion = cross_entropy  # type: ignore[assignment, misc]
+        self.value_criterion = nn.MSELoss().to(DEVICE)  # type: ignore[assignment, misc]
 
     def forward(self, state: _S) -> Tuple[float, torch.Tensor]:
         states = self.state_to_tensor(state).to(DEVICE)
@@ -116,11 +116,13 @@ class GameNet(ABC, Generic[_S, _A]):
         #  )
         assert probabilities.shape == probability_targets.shape
         assert values.shape == value_targets.shape
-        loss = self.policy_criterion(  # type: ignore
+        policy_loss = self.policy_criterion(  # type: ignore[misc, call-arg]
             probabilities, probability_targets
-        ) + self.value_criterion(  # type: ignore
+        )
+        value_loss = self.value_criterion(  # type: ignore[misc, call-arg]
             values, value_targets
         )
+        loss = policy_loss + value_loss
         assert loss.shape == ()
         self.optimizer.zero_grad()
         loss.backward()
@@ -152,7 +154,7 @@ class GameNet(ABC, Generic[_S, _A]):
 
     @classmethod
     def from_path(cls: Type[_T], path: str, *args: Any, **kwargs: Any) -> _T:
-        anet = cls(*args, **kwargs)  # type: ignore
+        anet = cls(*args, **kwargs)  # type: ignore[call-arg]
         anet.load(path)
         return anet
 
