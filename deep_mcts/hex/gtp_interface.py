@@ -1,16 +1,17 @@
+import dataclasses
+import os.path
 import re
 import string
 import sys
-import os.path
-from typing import Tuple, List, Callable, Dict, NoReturn, Optional
+from typing import Callable, Dict, List, NoReturn, Optional, Tuple
 
-import dataclasses
 import pexpect
 
 from deep_mcts.hex.convolutionalnet import ConvolutionalHexNet
-from deep_mcts.hex.game import HexManager, HexAction, HexState
+from deep_mcts.hex.game import HexAction, HexManager, HexState
 from deep_mcts.mcts import MCTS, Node
 from deep_mcts.tournament import Agent
+from deep_mcts.hex.game import hex_probabilities_grid
 
 
 class GTPInterface:
@@ -38,18 +39,17 @@ class GTPInterface:
         }
         self.board_size = 5
         self.game_manager = HexManager(self.board_size)
+        self.net = ConvolutionalHexNet.from_path(
+            os.path.join(
+                os.path.abspath(os.path.dirname(__file__)), "saves", "anet-364000.pth"
+            ),
+            self.board_size,
+        )
         self.mcts = MCTS(
             self.game_manager,
             num_simulations=100,
             rollout_policy=None,
-            state_evaluator=ConvolutionalHexNet.from_path(
-                os.path.join(
-                    os.path.abspath(os.path.dirname(__file__)),
-                    "saves",
-                    "anet-50000.pth",
-                ),
-                self.board_size,
-            ).evaluate_state,
+            state_evaluator=self.net.evaluate_state,
         )
 
     def run_command(self, command: str) -> Optional[str]:
@@ -97,21 +97,21 @@ class GTPInterface:
     def clear_board(self, args: List[str]) -> None:
         self.game_manager = HexManager(self.board_size)
         if self.board_size == 5:
-            game_net = ConvolutionalHexNet.from_path(
+            self.net = ConvolutionalHexNet.from_path(
                 os.path.join(
                     os.path.abspath(os.path.dirname(__file__)),
                     "saves",
-                    "anet-50000.pth",
+                    "anet-364000.pth",
                 ),
                 self.board_size,
             )
         else:
-            game_net = ConvolutionalHexNet(self.board_size)
+            self.net = ConvolutionalHexNet(self.board_size)
         self.mcts = MCTS(
             self.game_manager,
             num_simulations=100,
             rollout_policy=None,
-            state_evaluator=game_net.evaluate_state,
+            state_evaluator=self.net.evaluate_state,
         )
 
     def play(self, args: List[str]) -> None:
@@ -148,6 +148,17 @@ class GTPInterface:
                 dataclasses.replace(self.mcts.root.state, player=player)
             )
         action_probabilities = self.mcts.step()
+        value, net_action_probabilities = self.net.evaluate_state(self.mcts.root.state)
+        print(value, file=sys.stderr)
+        print(
+            hex_probabilities_grid(net_action_probabilities, self.board_size),
+            file=sys.stderr,
+        )
+        print(file=sys.stderr)
+        print(
+            hex_probabilities_grid(action_probabilities, self.board_size),
+            file=sys.stderr,
+        )
         action = max(action_probabilities.keys(), key=lambda a: action_probabilities[a])
         self.mcts.root = self.mcts.root.children[action]
         return format_move(action.coordinate, self.board_size)

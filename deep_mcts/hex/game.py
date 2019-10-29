@@ -162,5 +162,20 @@ def hex_simulator(grid_size: int, num_simulations: int) -> None:
     print(state.player)
 
 
+def hex_probabilities_grid(action_probabilities, grid_size):
+    board = [[0.0 for _ in range(grid_size)] for _ in range(grid_size)]
+    for action, probability in action_probabilities.items():
+        x, y = action.coordinate
+        board[y][x] = probability
+    grid = []
+    width = 4 * len(board) - 1 + 4
+    for i in range(len(board)):
+        tiles = " ".join(f"{x:.2f}" for x in board[i])
+        grid.append(
+            f"{' ' * (i if i < 9 else i - 1)}{i + 1} {tiles} {i + 1}".center(width)
+        )
+    return "\n".join(grid)
+
+
 if __name__ == "__main__":
     hex_simulator(4, 1000)
