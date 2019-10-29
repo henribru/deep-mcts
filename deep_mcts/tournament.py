@@ -43,8 +43,8 @@ def tournament(
     ]
     for (i, agent_1), (j, agent_2) in itertools.combinations(enumerate(agents), 2):
         result = compare_agents((agent_1, agent_2), num_games, game_manager)
-        results[i][j] = result
-        results[j][i] = (result[2], result[1], result[0])
+        results[i][j] = (sum(result[0]), sum(result[1]), sum(result[2]))
+        results[j][i] = (sum(result[2]), sum(result[1]), sum(result[0]))
     return results
 
 
@@ -52,20 +52,36 @@ def compare_agents(
     players: Tuple[Agent[_S, _A], Agent[_S, _A]],
     num_games: int,
     game_manager: "GameManager[_S, _A]",
-) -> Tuple[float, float, float]:
-    wins, draws, losses = 0, 0, 0
+) -> Tuple[Tuple[float, float], Tuple[float, float], Tuple[float, float]]:
+    first_player_wins = 0
+    second_player_wins = 0
+    first_player_draws = 0
+    second_player_draws = 0
+    first_player_losses = 0
+    second_player_losses = 0
     for k in range(num_games):
         if k % 2 == 0:
             result = play(players, game_manager)
+            if result == -1:
+                first_player_wins += 1
+            elif result == 1:
+                first_player_losses += 1
+            else:
+                first_player_draws += 1
         else:
             result = -play((players[1], players[0]), game_manager)
-        if result == -1:
-            wins += 1
-        elif result == 1:
-            losses += 1
-        else:
-            draws += 1
-    return wins / num_games, draws / num_games, losses / num_games
+            if result == -1:
+                second_player_wins += 1
+            elif result == 1:
+                second_player_losses += 1
+            else:
+                second_player_draws += 1
+    num_games //= 2
+    return (
+        (first_player_wins / num_games, second_player_wins / num_games),
+        (first_player_draws / num_games, second_player_draws / num_games),
+        (first_player_losses / num_games, second_player_losses / num_games),
+    )
 
 
 def play(

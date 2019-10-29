@@ -61,7 +61,11 @@ def train(
     evaluation_interval: int,
     rollout_policy: Optional[Callable[[_S], _A]] = None,
 ) -> Iterable[
-    Tuple[int, Tuple[float, float, float], Optional[Tuple[float, float, float]]]
+    Tuple[
+        int,
+        Tuple[Tuple[float, float], Tuple[float, float], Tuple[float, float]],
+        Optional[Tuple[Tuple[float, float], Tuple[float, float], Tuple[float, float]]],
+    ]
 ]:
     replay_buffer = Deque[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]([], 100_000)
     game_net.save(f"saves/anet-0.pth")
