@@ -1,4 +1,6 @@
 import random
+from functools import lru_cache
+
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Tuple
 
@@ -8,7 +10,7 @@ from deep_mcts.mcts import MCTS
 
 @dataclass(frozen=True)
 class TicTacToeState(State):
-    grid: List[List[CellState]]
+    grid: Tuple[Tuple[CellState, ...], ...]
 
 
 @dataclass(frozen=True)
@@ -19,28 +21,33 @@ class TicTacToeAction:
 class TicTacToeManager(GameManager[TicTacToeState, TicTacToeAction]):
     def initial_game_state(self) -> TicTacToeState:
         return TicTacToeState(
-            Player.FIRST, [[CellState.EMPTY for _ in range(3)] for _ in range(3)]
+            Player.FIRST,
+            tuple(tuple(CellState.EMPTY for _ in range(3)) for _ in range(3)),
         )
 
-    def generate_child_state(
+    @lru_cache(maxsize=2 ** 20)
+    def generate_child_state(  # type: ignore[override]
         self, state: TicTacToeState, action: TicTacToeAction
     ) -> TicTacToeState:
         assert action in self.legal_actions(state)
         x, y = action.coordinate
         return TicTacToeState(
             state.player.opposite(),
-            [
-                [
+            tuple(
+                tuple(
                     CellState(state.player) if (j, i) == (x, y) else cell
                     for j, cell in enumerate(row)
-                ]
+                )
                 if i == y
                 else row
                 for i, row in enumerate(state.grid)
-            ],
+            ),
         )
 
-    def legal_actions(self, state: TicTacToeState) -> List[TicTacToeAction]:
+    @lru_cache(maxsize=2 ** 20)
+    def legal_actions(  # type: ignore[override]
+        self, state: TicTacToeState
+    ) -> List[TicTacToeAction]:
         return [
             TicTacToeAction((x, y))
             for y in range(3)
@@ -48,12 +55,16 @@ class TicTacToeManager(GameManager[TicTacToeState, TicTacToeAction]):
             if state.grid[y][x] == CellState.EMPTY
         ]
 
-    def is_final_state(self, state: TicTacToeState) -> bool:
+    @lru_cache(maxsize=2 ** 20)
+    def is_final_state(self, state: TicTacToeState) -> bool:  # type: ignore[override]
         return self.evaluate_final_state(state) != Outcome.DRAW or all(
             all(p != CellState.EMPTY for p in row) for row in state.grid
         )
 
-    def evaluate_final_state(self, state: TicTacToeState) -> int:
+    @lru_cache(maxsize=2 ** 20)
+    def evaluate_final_state(  # type: ignore[override]
+        self, state: TicTacToeState
+    ) -> int:
         for player, outcome in [
             (CellState.SECOND_PLAYER, Outcome.SECOND_PLAYER_WIN),
             (CellState.FIRST_PLAYER, Outcome.FIRST_PLAYER_WIN),

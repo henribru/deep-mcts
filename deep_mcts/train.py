@@ -48,7 +48,21 @@ def create_self_play_examples(
                 for state, visit_distribution in examples
             ]
         )
-        if i % 100 == 0 and process_number == 0:
+        if process_number == 0:
+            print(i)
+            cached_methods = [
+                "generate_child_state",
+                "generate_child_states",
+                "legal_actions",
+                "is_final_state",
+                "evaluate_final_state",
+            ]
+            for method in cached_methods:
+                cache_info = getattr(game_manager, method).cache_info()
+                hit_ratio = cache_info.hits / (cache_info.hits + cache_info.misses)
+                print(f"{method}: {hit_ratio * 100:.1f}%")
+            print()
+        if i % 10 == 0 and process_number == 0:
             print(f"{time.strftime('%H:%M:%S')} {i}")
 
 

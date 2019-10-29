@@ -1,3 +1,5 @@
+from functools import lru_cache
+
 import dataclasses
 import itertools
 import random
@@ -11,7 +13,7 @@ from deep_mcts.mcts import MCTS
 
 @dataclass(frozen=True)
 class OthelloState(State):
-    grid: List[List[CellState]]
+    grid: Tuple[Tuple[CellState, ...], ...]
 
     def __str__(self) -> str:
         symbol = {-1: ".", 0: "0", 1: "1"}
@@ -56,7 +58,7 @@ class OthelloMove:
             ):
                 for opposite_x, opposite_y in opposites:
                     grid[opposite_y][opposite_x] = CellState(state.player)
-        return OthelloState(opposite_player, grid)
+        return OthelloState(opposite_player, tuple(tuple(row) for row in grid))
 
 
 @dataclass(frozen=True)
@@ -85,15 +87,19 @@ class OthelloManager(GameManager[OthelloState, OthelloAction]):
         board[y][x - 1] = CellState.FIRST_PLAYER
         board[y - 1][x] = CellState.FIRST_PLAYER
         board[y - 1][x - 1] = CellState.SECOND_PLAYER
-        return OthelloState(Player.FIRST, board)
+        return OthelloState(Player.FIRST, tuple(tuple(row) for row in board))
 
-    def generate_child_state(
+    @lru_cache(maxsize=2 ** 20)
+    def generate_child_state(  # type: ignore[override]
         self, state: OthelloState, action: OthelloAction
     ) -> OthelloState:
         assert action in self.legal_actions(state)
         return action.generate_child_state(state)
 
-    def legal_actions(self, state: OthelloState) -> List[OthelloAction]:
+    @lru_cache(maxsize=2 ** 20)
+    def legal_actions(  # type: ignore[override]
+        self, state: OthelloState
+    ) -> List[OthelloAction]:
         actions: Set[OthelloAction] = set()
         opposite_player = state.player.opposite()
         for x, y in player_positions(state):
@@ -124,12 +130,16 @@ class OthelloManager(GameManager[OthelloState, OthelloAction]):
             actions.add(OthelloPass())
         return list(actions)
 
-    def is_final_state(self, state: OthelloState) -> bool:
+    @lru_cache(maxsize=2 ** 20)
+    def is_final_state(self, state: OthelloState) -> bool:  # type: ignore[override]
         return self.legal_actions(state) == [OthelloPass()] and self.legal_actions(
             self.generate_child_state(state, OthelloPass())
         ) == [OthelloPass()]
 
-    def evaluate_final_state(self, state: OthelloState) -> int:
+    @lru_cache(maxsize=2 ** 20)
+    def evaluate_final_state(  # type: ignore[override]
+        self, state: OthelloState
+    ) -> int:
         first_player_pieces = sum(
             sum(c == CellState.FIRST_PLAYER for c in row) for row in state.grid
         )

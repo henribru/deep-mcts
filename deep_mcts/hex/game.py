@@ -1,5 +1,7 @@
 import random
 import string
+from functools import lru_cache
+
 from dataclasses import dataclass
 from typing import Dict, Tuple, List, Iterable, MutableSet, Optional, Set, Mapping
 
@@ -9,7 +11,7 @@ from deep_mcts.game import GameManager, Player, State, CellState, Outcome
 
 @dataclass(frozen=True)
 class HexState(State):
-    grid: List[List[CellState]]
+    grid: Tuple[Tuple[CellState, ...], ...]
 
     def __str__(self) -> str:
         symbol = {-1: ".", 0: "0", 1: "1"}
@@ -41,29 +43,35 @@ class HexManager(GameManager[HexState, HexAction]):
     def initial_game_state(self) -> HexState:
         return HexState(
             Player.FIRST,
-            [
-                [CellState.EMPTY for _ in range(self.grid_size)]
+            tuple(
+                tuple(CellState.EMPTY for _ in range(self.grid_size))
                 for _ in range(self.grid_size)
-            ],
+            ),
         )
 
-    def generate_child_state(self, state: HexState, action: HexAction) -> HexState:
+    @lru_cache(maxsize=2 ** 20)
+    def generate_child_state(  # type: ignore[override]
+        self, state: HexState, action: HexAction
+    ) -> HexState:
         assert action in self.legal_actions(state)
         x, y = action.coordinate
         return HexState(
             state.player.opposite(),
-            [
-                [
+            tuple(
+                tuple(
                     CellState(state.player) if (j, i) == (x, y) else cell
                     for j, cell in enumerate(row)
-                ]
+                )
                 if i == y
                 else row
                 for i, row in enumerate(state.grid)
-            ],
+            ),
         )
 
-    def legal_actions(self, state: HexState) -> List[HexAction]:
+    @lru_cache(maxsize=2 ** 20)
+    def legal_actions(  # type: ignore[override]
+        self, state: HexState
+    ) -> List[HexAction]:
         return [
             HexAction((x, y))
             for y in range(self.grid_size)
@@ -74,7 +82,8 @@ class HexManager(GameManager[HexState, HexAction]):
     def is_final_state(self, state: HexState) -> bool:
         return self.evaluate_final_state(state) != Outcome.DRAW
 
-    def evaluate_final_state(self, state: HexState) -> int:
+    @lru_cache(maxsize=2 ** 20)
+    def evaluate_final_state(self, state: HexState) -> int:  # type: ignore[override]
         starts = (
             (0, y)
             for y in range(self.grid_size)

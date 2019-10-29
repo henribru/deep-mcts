@@ -1,5 +1,6 @@
 from abc import abstractmethod, ABC
 from enum import IntEnum
+from functools import lru_cache
 
 from typing import TypeVar, Dict, Generic, List
 
@@ -51,6 +52,7 @@ class GameManager(ABC, Generic[_S, _A]):
     def initial_game_state(self) -> _S:
         ...
 
+    @lru_cache(maxsize=2 ** 20)
     def generate_child_states(self, state: _S) -> Dict[_A, _S]:
         child_states = {
             action: self.generate_child_state(state, action)
