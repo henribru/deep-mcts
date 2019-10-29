@@ -226,9 +226,12 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
             for y in range(self.grid_size)
             for x in range(self.grid_size)
         }
-        assert set(
-            action for action, probability in actions.items() if probability != 0
-        ) == set(self.hex_manager.legal_actions(state))
+        legal_actions = set(self.hex_manager.legal_actions(state))
+        assert all(
+            action in legal_actions
+            for action, probability in actions.items()
+            if probability != 0
+        )
         return value, actions
 
     def state_to_tensor(self, state: HexState) -> torch.Tensor:
