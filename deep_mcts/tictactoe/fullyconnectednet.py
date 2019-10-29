@@ -81,7 +81,7 @@ class FullyConnectedTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
         action_probabilities = action_probabilities[0, :]
         assert action_probabilities.shape == (3 ** 2,)
         action = torch.argmax(action_probabilities).item()
-        x, y = action % 3, action // 3
+        x, y = np.unravel_index(action, shape=(3, 3))
         return TicTacToeAction((x, y))
 
     def evaluate_state(

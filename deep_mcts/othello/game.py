@@ -27,7 +27,7 @@ class OthelloMove:
     def generate_child_state(self, state: OthelloState) -> OthelloState:
         x, y = self.coordinate
         grid = [[cell for cell in row] for row in state.grid]
-        grid[y][x] = state.player
+        grid[y][x] = CellState(state.player)
         opposite_player = state.player.opposite()
         shifts = itertools.product([0, 1, -1], repeat=2)
         for x_shift, y_shift in shifts:

@@ -1,7 +1,7 @@
 import random
 import string
 from dataclasses import dataclass
-from typing import Dict, Tuple, List, Iterable, MutableSet, Optional, Set
+from typing import Dict, Tuple, List, Iterable, MutableSet, Optional, Set, Mapping
 
 from deep_mcts.mcts import MCTS
 from deep_mcts.game import GameManager, Player, State, CellState, Outcome
@@ -154,7 +154,9 @@ def hex_simulator(grid_size: int, num_simulations: int) -> None:
     print(manager.evaluate_final_state(next_state))
 
 
-def hex_probabilities_grid(action_probabilities, grid_size):
+def hex_probabilities_grid(
+    action_probabilities: Mapping[HexAction, float], grid_size: int
+) -> str:
     board = [[0.0 for _ in range(grid_size)] for _ in range(grid_size)]
     for action, probability in action_probabilities.items():
         x, y = action.coordinate
