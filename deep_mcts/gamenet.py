@@ -134,7 +134,7 @@ class GameNet(ABC, Generic[_S, _A]):
         torch.save(self.net.state_dict(), path)
 
     def load(self, path: str) -> None:
-        self.net.load_state_dict(torch.load(path))
+        self.net.load_state_dict(torch.load(path, map_location=DEVICE))
 
     @abstractmethod
     def state_to_tensor(self, state: _S) -> torch.Tensor:
