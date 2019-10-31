@@ -49,7 +49,7 @@ def create_self_play_examples(
             ]
         )
         if i % 100 == 0 and process_number == 0:
-            print(i)
+            print(f"{time.strftime('%H:%M:%S')} {i}")
 
 
 def train(
@@ -129,7 +129,7 @@ def train(
         value_targets = torch.stack(value_targets).to(DEVICE)  # type: ignore[arg-type]
         game_net.train(states, probability_targets, value_targets)
         if evaluation_interval != 0 and (i + 1) % evaluation_interval == 0:
-            print("evaluating")
+            print(f"{time.strftime('%H:%M:%S')} evaluating")
             random_mcts_evaluation = compare_agents(
                 (
                     MCTSAgent(
@@ -178,6 +178,7 @@ def train(
             )
             previous_net = game_net.copy()
             print(
+                f"{time.strftime('%H:%M:%S')} "
                 f"i: {i + 1}, t: {time.perf_counter() - prev_evaluation_time:.0f} "
                 f"previous: {previous_evaluation} random MCTS: {random_mcts_evaluation} "
                 f"moves: {len(replay_buffer)}"
