@@ -48,11 +48,14 @@ def tournament(
     return results
 
 
+AgentComparison = Tuple[Tuple[float, float], Tuple[float, float], Tuple[float, float]]
+
+
 def compare_agents(
     players: Tuple[Agent[_S, _A], Agent[_S, _A]],
     num_games: int,
     game_manager: "GameManager[_S, _A]",
-) -> Tuple[Tuple[float, float], Tuple[float, float], Tuple[float, float]]:
+) -> AgentComparison:
     first_player_wins = 0
     second_player_wins = 0
     first_player_draws = 0

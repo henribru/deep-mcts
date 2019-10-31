@@ -32,7 +32,7 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
             channels=128,
             policy_features=grid_size ** 2,
             policy_shape=(grid_size, grid_size),
-        ).to(DEVICE)
+        )
         self.grid_size = grid_size
         self.hex_manager = HexManager(grid_size)
         self.optimizer = torch.optim.SGD(self.net.parameters(), lr=0.01, momentum=0.9)
@@ -48,7 +48,9 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
                 for state in states
             ]
         )
-        legal_moves = (states == CellState.EMPTY).to(dtype=torch.float32, device=DEVICE)
+        legal_moves = (states == CellState.EMPTY).to(
+            dtype=torch.float32, device=self.device
+        )
         assert legal_moves.shape == output.shape
         result = output * legal_moves
         assert result.shape == output.shape

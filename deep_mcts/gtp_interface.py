@@ -18,7 +18,7 @@ from abc import ABC, abstractmethod
 import pexpect
 
 from deep_mcts.game import Player, Outcome, State, GameManager
-from deep_mcts.gamenet import GameNet
+from deep_mcts.gamenet import GameNet, DEVICE
 from deep_mcts.mcts import MCTS, Node
 from deep_mcts.tournament import Agent
 
@@ -51,7 +51,7 @@ class GTPInterface(ABC, Generic[_S, _A]):
         }
         self.board_size = board_size
         self.game_manager = self.get_game_manager(board_size)
-        self.net = self.get_game_net(board_size)
+        self.net = self.get_game_net(board_size).to(DEVICE)
         self.mcts = MCTS(
             self.game_manager,
             num_simulations=100,

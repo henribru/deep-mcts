@@ -31,7 +31,7 @@ class ConvolutionalTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
             channels=16,
             policy_features=9,
             policy_shape=(3, 3),
-        ).to(DEVICE)
+        )
         self.manager = TicTacToeManager()
         self.optimizer = torch.optim.SGD(self.net.parameters(), lr=0.01, momentum=0.9)
 
@@ -39,7 +39,9 @@ class ConvolutionalTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
         self, states: Sequence[TicTacToeState], output: torch.Tensor
     ) -> torch.Tensor:
         states = torch.tensor([state.grid for state in states])
-        legal_moves = (states == CellState.EMPTY).to(dtype=torch.float32, device=DEVICE)
+        legal_moves = (states == CellState.EMPTY).to(
+            dtype=torch.float32, device=self.device
+        )
         assert legal_moves.shape == output.shape
         result = output * legal_moves
         assert result.shape == output.shape

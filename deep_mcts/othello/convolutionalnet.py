@@ -1,5 +1,5 @@
 import random
-from typing import Tuple, Dict, Mapping, Sequence, TYPE_CHECKING
+from typing import Tuple, Dict, Mapping, Sequence, TYPE_CHECKING, Optional
 
 import numpy as np
 import torch
@@ -38,7 +38,7 @@ class ConvolutionalOthelloNet(GameNet[OthelloState, OthelloAction]):
             channels=128,
             policy_features=grid_size ** 2 + 1,
             policy_shape=(grid_size ** 2 + 1,),
-        ).to(DEVICE)
+        )
         self.grid_size = grid_size
         self.manager = OthelloManager(grid_size)
         self.optimizer = torch.optim.SGD(self.net.parameters(), lr=0.01, momentum=0.9)
@@ -55,7 +55,7 @@ class ConvolutionalOthelloNet(GameNet[OthelloState, OthelloAction]):
                     x, y = action.coordinate
                     legal_moves[i][y * self.grid_size + x] = 1.0
         assert legal_moves.shape == output.shape
-        result = output * legal_moves.to(DEVICE)
+        result = output * legal_moves.to(self.device)
         assert result.shape == output.shape
         return result
 
@@ -126,7 +126,7 @@ class ConvolutionalOthelloNet(GameNet[OthelloState, OthelloAction]):
         assert targets.shape == (len(distributions), self.grid_size ** 2 + 1)
         return targets
 
-    def copy(self: "ConvolutionalOthelloNet") -> "ConvolutionalOthelloNet":
+    def copy(self) -> "ConvolutionalOthelloNet":
         net = ConvolutionalOthelloNet(self.grid_size)
         net.net.load_state_dict(self.net.state_dict())
         return net

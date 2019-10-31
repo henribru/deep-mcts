@@ -49,16 +49,18 @@ _T = TypeVar("_T", bound="GameNet")  # type: ignore[type-arg]
 class GameNet(ABC, Generic[_S, _A]):
     net: "nn.Module[Tuple[torch.Tensor, torch.Tensor]]"
     policy_criterion: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
-    value_criterion: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
+    value_criterion: nn.MSELoss
     optimizer: "torch.optim.optimizer.Optimizer"
+    device: torch.device
 
     def __init__(self) -> None:
         self.policy_criterion = cross_entropy  # type: ignore[assignment, misc]
-        self.value_criterion = nn.MSELoss().to(DEVICE)  # type: ignore[assignment, misc]
+        self.value_criterion = nn.MSELoss()  # type: ignore[assignment, misc]
+        self.device = torch.device("cpu")
 
     def forward(self, state: _S) -> Tuple[float, torch.Tensor]:
         self.net.eval()
-        states = self.state_to_tensor(state).to(DEVICE)
+        states = self.state_to_tensor(state).to(self.device)
         with torch.autograd.no_grad():
             value, probabilities = self.net.forward(states.float())
         value = torch.tanh(value)
@@ -78,7 +80,7 @@ class GameNet(ABC, Generic[_S, _A]):
         assert probabilities.shape == shape
         assert torch.allclose(
             torch.sum(probabilities, dim=tuple(range(1, probabilities.dim()))),
-            torch.tensor([1.0], device=DEVICE),
+            torch.tensor([1.0], device=self.device),
         )
         return value.item(), probabilities.cpu().detach()
 
@@ -144,7 +146,7 @@ class GameNet(ABC, Generic[_S, _A]):
         torch.save(self.net.state_dict(), path)
 
     def load(self, path: str) -> None:
-        self.net.load_state_dict(torch.load(path, map_location=DEVICE))
+        self.net.load_state_dict(torch.load(path, map_location=self.device))
 
     @abstractmethod
     def state_to_tensor(self, state: _S) -> torch.Tensor:
@@ -163,6 +165,12 @@ class GameNet(ABC, Generic[_S, _A]):
     @abstractmethod
     def copy(self: _T) -> _T:
         ...
+
+    def to(self: _T, device: torch.device) -> _T:
+        self.device = device
+        self.value_criterion.to(device)
+        self.net.to(device)
+        return self
 
     @classmethod
     def from_path(cls: Type[_T], path: str, *args: Any, **kwargs: Any) -> _T:
