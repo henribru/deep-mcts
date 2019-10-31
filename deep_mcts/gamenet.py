@@ -21,7 +21,7 @@ import torch.optim.optimizer
 from deep_mcts.game import Player, State
 from deep_mcts.tournament import Agent
 
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 # DEVICE = torch.device("cpu")
 
 

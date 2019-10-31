@@ -1,8 +1,9 @@
 import dataclasses
 import itertools
 import random
+import string
 from dataclasses import dataclass
-from typing import Dict, Iterator, List, Tuple, Union, Set
+from typing import Dict, Iterator, List, Tuple, Union, Set, Mapping
 
 from deep_mcts.game import CellState, GameManager, Outcome, Player, State
 from deep_mcts.mcts import MCTS
@@ -15,8 +16,13 @@ class OthelloState(State):
     def __str__(self) -> str:
         symbol = {-1: ".", 0: "0", 1: "1"}
         grid = []
-        for row in self.grid:
-            grid.append(" ".join(symbol[cell] for cell in row))
+        letters = string.ascii_uppercase[: len(self.grid)]
+        width = 2 * len(self.grid) - 1 + 4
+        grid.append(" ".join(letters).center(width))
+        for i, row in enumerate(self.grid, 1):
+            row_str = " ".join(symbol[cell] for cell in row)
+            grid.append(f"{i} {row_str} {i}".center(width))
+        grid.append(" ".join(letters).center(width))
         return "\n".join(grid)
 
 
@@ -159,6 +165,24 @@ def othello_simulator(grid_size: int, num_simulations: int) -> None:
         print(getattr(action, "coordinate", "pass"))
     print(next_state)
     print(manager.evaluate_final_state(next_state))
+
+
+def othello_probabilities_grid(
+    action_probabilities: Mapping[OthelloAction, float], grid_size: int
+) -> str:
+    board = [[0.0 for _ in range(grid_size)] for _ in range(grid_size)]
+    for action, probability in action_probabilities.items():
+        if not isinstance(action, OthelloPass):
+            x, y = action.coordinate
+            board[y][x] = probability
+    grid = []
+    for i, row in enumerate(board, 1):
+        row_str = " ".join(f"{x:.2f}" for x in row)
+        grid.append(row_str)
+    pass_ = OthelloPass()
+    if pass_ in action_probabilities:
+        grid.append(f"pass: {action_probabilities[pass_]}")
+    return "\n".join(grid)
 
 
 if __name__ == "__main__":
