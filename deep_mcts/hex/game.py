@@ -8,7 +8,7 @@ from deep_mcts.game import GameManager, Player, State, CellState, Outcome
 from deep_mcts.mcts import play_random_mcts
 
 
-@dataclass(frozen=True)
+@dataclass(unsafe_hash=True)
 class HexState(State):
     __slots__ = ["grid"]
     grid: Tuple[Tuple[CellState, ...], ...]
@@ -28,7 +28,7 @@ class HexState(State):
         return "\n".join(grid)
 
 
-@dataclass(frozen=True)
+@dataclass(unsafe_hash=True)
 class HexAction:
     __slots__ = ["coordinate"]
     coordinate: Tuple[int, int]

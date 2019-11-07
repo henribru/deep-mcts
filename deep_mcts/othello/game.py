@@ -10,7 +10,7 @@ from deep_mcts.game import CellState, GameManager, Outcome, Player, State
 from deep_mcts.mcts import play_random_mcts
 
 
-@dataclass(frozen=True)
+@dataclass(unsafe_hash=True)
 class OthelloState(State):
     __slots__ = ["grid"]
     grid: Tuple[Tuple[CellState, ...], ...]
@@ -28,7 +28,7 @@ class OthelloState(State):
         return "\n".join(grid)
 
 
-@dataclass(frozen=True)
+@dataclass(unsafe_hash=True)
 class OthelloMove:
     __slots__ = ["coordinate"]
     coordinate: Tuple[int, int]
@@ -65,7 +65,7 @@ class OthelloMove:
         return str(self.coordinate)
 
 
-@dataclass(frozen=True)
+@dataclass(unsafe_hash=True)
 class OthelloPass:
     def generate_child_state(self, state: OthelloState) -> OthelloState:
         return dataclasses.replace(state, player=state.player.opposite())

@@ -8,7 +8,7 @@ from deep_mcts.hex.game import HexManager, HexState, HexAction, hex_probabilitie
 from deep_mcts.mcts import play_random_mcts
 
 
-@dataclass(frozen=True)
+@dataclass(unsafe_hash=True)
 class HexSwap:
     def __str__(self) -> str:
         return "swap"

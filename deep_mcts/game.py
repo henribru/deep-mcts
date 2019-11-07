@@ -37,7 +37,12 @@ class Outcome(IntEnum):
     DRAW = 0
 
 
-@dataclass(frozen=True)
+# We can't make this (or any other state or action)
+# frozen because frozen dataclasses with slots
+# can't be pickled and transferred between processes.
+# They should never be mutated though, so we enable
+# hashing.
+@dataclass(unsafe_hash=True)
 class State:
     __slots__ = ["player"]
     player: Player
