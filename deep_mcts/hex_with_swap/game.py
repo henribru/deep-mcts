@@ -40,10 +40,7 @@ class HexWithSwapManager(GameManager[HexState, HexWithSwapAction]):
         if isinstance(action, HexSwap):
             return HexState(
                 state.player.opposite(),
-                tuple(
-                    tuple(state.grid[j][i].opposite() for i in range(self.grid_size))
-                    for j in range(self.grid_size)
-                ),
+                tuple(tuple(cell.opposite() for cell in row) for row in state.grid),
             )
         return self.manager.generate_child_state(state, action)
 
