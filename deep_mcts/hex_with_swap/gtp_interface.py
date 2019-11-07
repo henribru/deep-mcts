@@ -3,24 +3,24 @@ import re
 import string
 from typing import Callable, Dict, List, Optional, Mapping
 
-from deep_mcts.hex_with_swap.convolutionalnet import ConvolutionalHexNet
+from deep_mcts.hex_with_swap.convolutionalnet import ConvolutionalHexWithSwapNet
 from deep_mcts.hex_with_swap.game import (
+    HexWithSwapAction,
     HexAction,
-    HexMove,
     HexSwap,
     HexWithSwapManager,
     HexState,
-    hex_probabilities_grid,
+    hex_with_swap_probabilities_grid,
 )
 from deep_mcts.mcts import MCTS
 from deep_mcts.gtp_interface import GTPInterface
 
 
-class HexWithSwapGTPInterface(GTPInterface[HexState, HexAction]):
+class HexWithSwapGTPInterface(GTPInterface[HexState, HexWithSwapAction]):
     commands: Dict[str, Callable[[List[str]], Optional[str]]]
     board_size: int
     game_manager: HexWithSwapManager
-    mcts: MCTS[HexState, HexAction]
+    mcts: MCTS[HexState, HexWithSwapAction]
 
     def __init__(self) -> None:
         super().__init__(board_size=5)
@@ -30,7 +30,7 @@ class HexWithSwapGTPInterface(GTPInterface[HexState, HexAction]):
         pass
 
     @staticmethod
-    def parse_move(move: str, grid_size: int) -> HexAction:
+    def parse_move(move: str, grid_size: int) -> HexWithSwapAction:
         move = move.lower()
         if move == "swap":
             return HexSwap()
@@ -42,10 +42,10 @@ class HexWithSwapGTPInterface(GTPInterface[HexState, HexAction]):
         y = int(y) - 1
         if x >= grid_size or not 0 <= y < grid_size:
             raise ValueError("invalid move")
-        return HexMove((x, y))
+        return HexAction((x, y))
 
     @staticmethod
-    def format_move(move: HexAction) -> str:
+    def format_move(move: HexWithSwapAction) -> str:
         if isinstance(move, HexSwap):
             return "swap"
         x, y = move.coordinate
@@ -56,14 +56,14 @@ class HexWithSwapGTPInterface(GTPInterface[HexState, HexAction]):
         return HexWithSwapManager(board_size)
 
     @staticmethod
-    def get_game_net(board_size: int) -> ConvolutionalHexNet:
-        return ConvolutionalHexNet(board_size)
+    def get_game_net(board_size: int) -> ConvolutionalHexWithSwapNet:
+        return ConvolutionalHexWithSwapNet(board_size)
 
     @staticmethod
     def probabilities_grid(
-        action_probabilities: Mapping[HexAction, float], board_size: int
+        action_probabilities: Mapping[HexWithSwapAction, float], board_size: int
     ) -> str:
-        return hex_probabilities_grid(action_probabilities, board_size)
+        return hex_with_swap_probabilities_grid(action_probabilities, board_size)
 
 
 if __name__ == "__main__":

@@ -192,3 +192,19 @@ class MCTSAgent(Agent[_S, _A], ABC):
 
     def reset(self) -> None:
         self.mcts.reset()
+
+
+def play_random_mcts(manager: GameManager[_S, _A], num_simulations: int) -> None:
+    mcts = MCTS(
+        manager,
+        num_simulations,
+        lambda state: random.choice(manager.legal_actions(state)),
+        None,
+    )
+    for state, next_state, action, _ in mcts.self_play():
+        print(state)
+        print()
+        print(action)
+        print()
+    print(next_state)
+    print(state.player)

@@ -1,12 +1,11 @@
-import random
 import string
 from functools import lru_cache
+from typing import Tuple, List, Iterable, MutableSet, Optional, Set, Mapping
 
 from dataclasses import dataclass
-from typing import Dict, Tuple, List, Iterable, MutableSet, Optional, Set, Mapping
 
-from deep_mcts.mcts import MCTS
 from deep_mcts.game import GameManager, Player, State, CellState, Outcome
+from deep_mcts.mcts import play_random_mcts
 
 
 @dataclass(frozen=True)
@@ -31,6 +30,9 @@ class HexState(State):
 @dataclass(frozen=True)
 class HexAction:
     coordinate: Tuple[int, int]
+
+    def __str__(self) -> str:
+        return str(self.coordinate)
 
 
 class HexManager(GameManager[HexState, HexAction]):
@@ -147,22 +149,6 @@ class HexManager(GameManager[HexState, HexAction]):
                 yield shifted_x, shifted_y
 
 
-def hex_simulator(grid_size: int, num_simulations: int) -> None:
-    manager = HexManager(grid_size)
-    mcts = MCTS(
-        manager,
-        num_simulations,
-        lambda state: random.choice(manager.legal_actions(state)),
-        None,
-    )
-    for state, next_state, action, _ in mcts.self_play():
-        print(action.coordinate)
-        print(state)
-        print("-" * 5)
-    print(next_state)
-    print(manager.evaluate_final_state(next_state))
-
-
 def hex_probabilities_grid(
     action_probabilities: Mapping[HexAction, float], grid_size: int
 ) -> str:
@@ -181,4 +167,4 @@ def hex_probabilities_grid(
 
 
 if __name__ == "__main__":
-    hex_simulator(4, 1000)
+    play_random_mcts(HexManager(grid_size=4), num_simulations=1000)

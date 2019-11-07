@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import Dict, Iterator, List, Tuple, Union, Set, Mapping
 
 from deep_mcts.game import CellState, GameManager, Outcome, Player, State
-from deep_mcts.mcts import MCTS
+from deep_mcts.mcts import MCTS, play_random_mcts
 
 
 @dataclass(frozen=True)
@@ -60,11 +60,17 @@ class OthelloMove:
                     grid[opposite_y][opposite_x] = CellState(state.player)
         return OthelloState(opposite_player, tuple(tuple(row) for row in grid))
 
+    def __str__(self) -> str:
+        return str(self.coordinate)
+
 
 @dataclass(frozen=True)
 class OthelloPass:
     def generate_child_state(self, state: OthelloState) -> OthelloState:
         return dataclasses.replace(state, player=state.player.opposite())
+
+    def __str__(self) -> str:
+        return "pass"
 
 
 OthelloAction = Union[OthelloMove, OthelloPass]
@@ -161,22 +167,6 @@ def player_positions(state: OthelloState) -> Iterator[Tuple[int, int]]:
                 yield x, y
 
 
-def othello_simulator(grid_size: int, num_simulations: int) -> None:
-    manager = OthelloManager(grid_size)
-    mcts = MCTS(
-        manager,
-        num_simulations,
-        lambda state: random.choice(manager.legal_actions(state)),
-        None,
-    )
-    for state, next_state, action, _ in mcts.self_play():
-        print(state)
-        print("-" * 5)
-        print(getattr(action, "coordinate", "pass"))
-    print(next_state)
-    print(manager.evaluate_final_state(next_state))
-
-
 def othello_probabilities_grid(
     action_probabilities: Mapping[OthelloAction, float], grid_size: int
 ) -> str:
@@ -196,4 +186,4 @@ def othello_probabilities_grid(
 
 
 if __name__ == "__main__":
-    othello_simulator(6, 100)
+    play_random_mcts(OthelloManager(grid_size=6), num_simulations=100)

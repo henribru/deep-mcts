@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Dict, Iterable, List, Tuple
 
 from deep_mcts.game import CellState, GameManager, Player, State, Outcome
-from deep_mcts.mcts import MCTS
+from deep_mcts.mcts import MCTS, play_random_mcts
 
 
 @dataclass(frozen=True)
@@ -106,7 +106,7 @@ def print_tic_tac_toe_grid(grid: Iterable[Iterable[int]]) -> None:
 
 
 if __name__ == "__main__":
-    tic_tac_toe_simulator(1000)
+    play_random_mcts(TicTacToeManager(), num_simulations=1000)
 
 r"""C:\Users\henbruas\AppData\Local\pypoetry\Cache\virtualenvs\deep-mcts-py3.7\Scripts\python.exe "D:/OneDrive - NTNU/NTNU/IT3105/Deep MCTS/deep_mcts/tictactoe/game.py"
 (0, 2)

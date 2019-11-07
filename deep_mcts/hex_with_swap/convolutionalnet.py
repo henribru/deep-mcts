@@ -14,16 +14,17 @@ from deep_mcts.convolutionalnet import (
 )
 from deep_mcts.game import CellState, Player
 from deep_mcts.gamenet import GameNet
+from deep_mcts.hex.convolutionalnet import ConvolutionalHexNet
 from deep_mcts.hex_with_swap.game import (
     HexWithSwapManager,
     HexState,
+    HexWithSwapAction,
     HexAction,
-    HexMove,
     HexSwap,
 )
 
 
-class ConvolutionalHexNet(GameNet[HexState, HexAction]):
+class ConvolutionalHexWithSwapNet(GameNet[HexState, HexWithSwapAction]):
     grid_size: int
     hex_manager: HexWithSwapManager
 
@@ -76,16 +77,18 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
             )
         return value, action_probabilities
 
-    def sampling_policy(self, state: HexState) -> HexAction:
+    def sampling_policy(self, state: HexState) -> HexWithSwapAction:
         raise NotImplementedError
 
-    def greedy_policy(self, state: HexState, epsilon: float = 0) -> HexAction:
+    def greedy_policy(self, state: HexState, epsilon: float = 0) -> HexWithSwapAction:
         raise NotImplementedError
 
-    def evaluate_state(self, state: HexState) -> Tuple[float, Dict[HexAction, float]]:
+    def evaluate_state(
+        self, state: HexState
+    ) -> Tuple[float, Dict[HexWithSwapAction, float]]:
         value, probabilities = self.forward(state)
-        actions: Dict[HexAction, float] = {
-            HexMove((x, y)): probabilities[0, y * self.grid_size + x].item()
+        actions: Dict[HexWithSwapAction, float] = {
+            HexAction((x, y)): probabilities[0, y * self.grid_size + x].item()
             for y in range(self.grid_size)
             for x in range(self.grid_size)
         }
@@ -138,7 +141,7 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
     def distributions_to_tensor(
         self,
         states: Sequence[HexState],
-        distributions: Sequence[Mapping[HexAction, float]],
+        distributions: Sequence[Mapping[HexWithSwapAction, float]],
     ) -> torch.Tensor:
         targets = torch.zeros(
             len(distributions), self.grid_size * self.grid_size + 1
@@ -164,7 +167,7 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
         )
         return targets
 
-    def copy(self) -> "ConvolutionalHexNet":
-        net = ConvolutionalHexNet(self.grid_size)
+    def copy(self) -> "ConvolutionalHexWithSwapNet":
+        net = ConvolutionalHexWithSwapNet(self.grid_size)
         net.net.load_state_dict(self.net.state_dict())
         return net
