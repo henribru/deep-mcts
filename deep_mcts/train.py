@@ -66,7 +66,7 @@ def create_self_play_examples(
                 print(f"{method}: {hit_ratio * 100:.1f}%")
 
 
-# def evaluate(
+# def evaluator(
 #     process_number: int,
 #     game_manager: GameManager[_S, _A],
 #     num_simulations: int,
@@ -85,51 +85,13 @@ def create_self_play_examples(
 #             break
 #         game_net.to(torch.device("cuda:1"))
 #         print(f"{time.strftime('%H:%M:%S')} evaluating")
-#         random_mcts_evaluation = compare_agents(
-#             (
-#                 MCTSAgent(
-#                     MCTS(
-#                         game_manager,
-#                         num_simulations,
-#                         rollout_policy,
-#                         state_evaluator=game_net.evaluate_state,
-#                     )
-#                 ),
-#                 MCTSAgent(
-#                     MCTS(
-#                         game_manager,
-#                         num_simulations * 4,
-#                         lambda s: random.choice(game_manager.legal_actions(s)),
-#                         state_evaluator=None,
-#                     )
-#                 ),
-#             ),
-#             20,
+#         random_mcts_evaluation, previous_evaluation = evaluate(
+#             game_net,
+#             previous_game_net,
 #             game_manager,
-#         )
-#         previous_evaluation = compare_agents(
-#             (
-#                 MCTSAgent(
-#                     MCTS(
-#                         game_manager,
-#                         num_simulations,
-#                         rollout_policy,
-#                         state_evaluator=game_net.evaluate_state,
-#                         epsilon=epsilon,
-#                     )
-#                 ),
-#                 MCTSAgent(
-#                     MCTS(
-#                         game_manager,
-#                         num_simulations,
-#                         rollout_policy,
-#                         state_evaluator=previous_game_net.evaluate_state,
-#                         epsilon=epsilon,
-#                     )
-#                 ),
-#             ),
-#             20,
-#             game_manager,
+#             num_simulations,
+#             rollout_policy,
+#             epsilon,
 #         )
 #         print(f"{time.strftime('%H:%M:%S')} done evaluating")
 #         previous_game_net = game_net
@@ -230,7 +192,7 @@ def spawn_self_play_example_creators(
 #     game_net_queue: "multiprocessing.Queue[GameNet[_S, _A]]" = multiprocessing.Queue()
 #     evaluation_results_queue: "multiprocessing.Queue[Tuple[float, AgentComparison, AgentComparison]]" = multiprocessing.Queue()
 #     context = multiprocessing.spawn(
-#         evaluate,
+#         evaluator,
 #         (
 #             game_manager,
 #             num_simulations,
@@ -243,6 +205,64 @@ def spawn_self_play_example_creators(
 #         join=False,
 #     )
 #     return context, game_net_queue, evaluation_results_queue
+
+
+def evaluate(
+    game_net: GameNet[_S, _A],
+    previous_game_net: GameNet[_S, _A],
+    game_manager: GameManager[_S, _A],
+    num_simulations: int,
+    rollout_policy: Optional[Callable[[_S], _A]],
+    epsilon: float,
+    games: int = 20,
+) -> Tuple[AgentComparison, AgentComparison]:
+    random_mcts_evaluation = compare_agents(
+        (
+            MCTSAgent(
+                MCTS(
+                    game_manager,
+                    num_simulations,
+                    rollout_policy,
+                    state_evaluator=game_net.evaluate_state,
+                )
+            ),
+            MCTSAgent(
+                MCTS(
+                    game_manager,
+                    num_simulations * 4,
+                    lambda s: random.choice(game_manager.legal_actions(s)),
+                    state_evaluator=None,
+                )
+            ),
+        ),
+        games,
+        game_manager,
+    )
+    previous_evaluation = compare_agents(
+        (
+            MCTSAgent(
+                MCTS(
+                    game_manager,
+                    num_simulations,
+                    rollout_policy,
+                    state_evaluator=game_net.evaluate_state,
+                    epsilon=epsilon,
+                )
+            ),
+            MCTSAgent(
+                MCTS(
+                    game_manager,
+                    num_simulations,
+                    rollout_policy,
+                    state_evaluator=previous_game_net.evaluate_state,
+                    epsilon=epsilon,
+                )
+            ),
+        ),
+        games,
+        game_manager,
+    )
+    return random_mcts_evaluation, previous_evaluation
 
 
 def train(
@@ -303,51 +323,13 @@ def train(
             and (training_iterations + 1) % evaluation_interval == 0
         ):
             print(f"{time.strftime('%H:%M:%S')} evaluating")
-            random_mcts_evaluation = compare_agents(
-                (
-                    MCTSAgent(
-                        MCTS(
-                            game_manager,
-                            num_simulations,
-                            rollout_policy,
-                            state_evaluator=game_net.evaluate_state,
-                        )
-                    ),
-                    MCTSAgent(
-                        MCTS(
-                            game_manager,
-                            num_simulations * 4,
-                            lambda s: random.choice(game_manager.legal_actions(s)),
-                            state_evaluator=None,
-                        )
-                    ),
-                ),
-                20,
+            random_mcts_evaluation, previous_evaluation = evaluate(
+                game_net,
+                previous_game_net,
                 game_manager,
-            )
-            previous_evaluation = compare_agents(
-                (
-                    MCTSAgent(
-                        MCTS(
-                            game_manager,
-                            num_simulations,
-                            rollout_policy,
-                            state_evaluator=game_net.evaluate_state,
-                            epsilon=epsilon,
-                        )
-                    ),
-                    MCTSAgent(
-                        MCTS(
-                            game_manager,
-                            num_simulations,
-                            rollout_policy,
-                            state_evaluator=previous_game_net.evaluate_state,
-                            epsilon=epsilon,
-                        )
-                    ),
-                ),
-                20,
-                game_manager,
+                num_simulations,
+                rollout_policy,
+                epsilon,
             )
             print(
                 f"{time.strftime('%H:%M:%S')} "
