@@ -12,6 +12,54 @@ else:
     TensorPairModule = nn.Module
 
 
+class ConvolutionalNet(TensorPairModule):
+    def __init__(
+        self,
+        num_residual: int,
+        grid_size: int,
+        in_channels: int,
+        channels: int,
+        policy_features: int,
+        policy_shape: Tuple[int, ...],
+    ) -> None:
+        super().__init__()
+        self.conv1 = ConvolutionalBlock(
+            in_channels=in_channels, out_channels=channels, kernel_size=3, padding=1
+        )
+        self.residual_blocks = torch.nn.ModuleList(
+            [
+                ResidualBlock(
+                    in_channels=channels,
+                    out_channels=channels,
+                    kernel_size=3,
+                    padding=1,
+                )
+                for _ in range(num_residual)
+            ]
+        )
+        self.policy_head = PolicyHead(
+            grid_size, channels, policy_features, policy_shape
+        )
+        self.value_head = ValueHead(grid_size, channels, hidden_units=1024)
+
+    def forward(  # type: ignore[override]
+        self, x: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        input = x
+        # assert len(input.shape) == 4 and input.shape[1] == 3
+        x = self.conv1(x)
+        for (
+            residual_block
+        ) in (
+            self.residual_blocks  # type: ignore[attr-defined] # https://github.com/pytorch/pytorch/pull/27445
+        ):
+            x = residual_block(x)
+        value, probabilities = self.value_head(x), self.policy_head(x)
+        probabilities = probabilities.squeeze(1)
+        assert value.shape == (input.shape[0], 1)
+        return value, probabilities
+
+
 class ConvolutionalBlock(TensorModule):
     def __init__(
         self, in_channels: int, out_channels: int, kernel_size: int, padding: int
@@ -108,51 +156,3 @@ class ValueHead(TensorModule):
         x = F.relu(x)
         x = self.fc2(x)
         return x
-
-
-class ConvolutionalNet(TensorPairModule):
-    def __init__(
-        self,
-        num_residual: int,
-        grid_size: int,
-        in_channels: int,
-        channels: int,
-        policy_features: int,
-        policy_shape: Tuple[int, ...],
-    ) -> None:
-        super().__init__()
-        self.conv1 = ConvolutionalBlock(
-            in_channels=in_channels, out_channels=channels, kernel_size=3, padding=1
-        )
-        self.residual_blocks = torch.nn.ModuleList(
-            [
-                ResidualBlock(
-                    in_channels=channels,
-                    out_channels=channels,
-                    kernel_size=3,
-                    padding=1,
-                )
-                for _ in range(num_residual)
-            ]
-        )
-        self.policy_head = PolicyHead(
-            grid_size, channels, policy_features, policy_shape
-        )
-        self.value_head = ValueHead(grid_size, channels, hidden_units=1024)
-
-    def forward(  # type: ignore[override]
-        self, x: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        input = x
-        # assert len(input.shape) == 4 and input.shape[1] == 3
-        x = self.conv1(x)
-        for (
-            residual_block
-        ) in (
-            self.residual_blocks  # type: ignore[attr-defined] # https://github.com/pytorch/pytorch/pull/27445
-        ):
-            x = residual_block(x)
-        value, probabilities = self.value_head(x), self.policy_head(x)
-        probabilities = probabilities.squeeze(1)
-        assert value.shape == (input.shape[0], 1)
-        return value, probabilities

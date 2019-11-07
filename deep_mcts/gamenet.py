@@ -13,22 +13,6 @@ DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 # DEVICE = torch.device("cpu")
 
 
-def cross_entropy(
-    pred: torch.Tensor, soft_targets: torch.Tensor, reduction: str = "mean"
-) -> torch.Tensor:
-    pred = pred.reshape((pred.shape[0], -1))
-    soft_targets = soft_targets.reshape((soft_targets.shape[0], -1))
-    result = torch.sum(-soft_targets * F.log_softmax(pred, dim=1), dim=1)
-    assert result.shape == (pred.shape[0],)
-    if reduction == "mean":
-        result = torch.mean(result)
-        assert result.shape == ()
-    elif reduction == "sum":
-        result = torch.sum(result)
-        assert result.shape == ()
-    return result
-
-
 _S = TypeVar("_S", bound=State)
 _A = TypeVar("_A")
 _T = TypeVar("_T", bound="GameNet")  # type: ignore[type-arg]
@@ -189,3 +173,19 @@ class GreedyGameNetAgent(GameNetAgent[_S, _A]):
 class SamplingGameNetAgent(GameNetAgent[_S, _A]):
     def play(self, state: _S) -> _A:
         return self.net.sampling_policy(state)
+
+
+def cross_entropy(
+    pred: torch.Tensor, soft_targets: torch.Tensor, reduction: str = "mean"
+) -> torch.Tensor:
+    pred = pred.reshape((pred.shape[0], -1))
+    soft_targets = soft_targets.reshape((soft_targets.shape[0], -1))
+    result = torch.sum(-soft_targets * F.log_softmax(pred, dim=1), dim=1)
+    assert result.shape == (pred.shape[0],)
+    if reduction == "mean":
+        result = torch.mean(result)
+        assert result.shape == ()
+    elif reduction == "sum":
+        result = torch.sum(result)
+        assert result.shape == ()
+    return result
