@@ -13,6 +13,14 @@ class TicTacToeState(State):
     __slots__ = ["grid"]
     grid: Tuple[Tuple[CellState, ...], ...]
 
+    def __str__(self) -> str:
+        cell_to_str = {
+            CellState.EMPTY: "#",
+            CellState.FIRST_PLAYER: "X",
+            CellState.SECOND_PLAYER: "O",
+        }
+        return "\n".join("".join(cell_to_str[c] for c in row) for row in self.grid)
+
 
 @dataclass(unsafe_hash=True)
 class TicTacToeAction:
@@ -83,73 +91,5 @@ class TicTacToeManager(GameManager[TicTacToeState, TicTacToeAction]):
         return Outcome.DRAW
 
 
-def tic_tac_toe_simulator(num_simulations: int) -> None:
-    manager = TicTacToeManager()
-    mcts = MCTS(
-        manager,
-        num_simulations,
-        lambda state: random.choice(manager.legal_actions(state)),
-        None,
-    )
-    for state, next_state, action, _ in mcts.self_play():
-        print(action.coordinate)
-        print_tic_tac_toe_grid(state.grid)
-        print("-" * 5)
-    print_tic_tac_toe_grid(next_state.grid)
-    print(manager.evaluate_final_state(next_state))
-
-
-def print_tic_tac_toe_grid(grid: Iterable[Iterable[int]]) -> None:
-    symbol = {-1: "#", 0: "X", 1: "O"}
-    for row in grid:
-        for p in row:
-            print(symbol[p], end="")
-        print()
-
-
 if __name__ == "__main__":
     play_random_mcts(TicTacToeManager(), num_simulations=1000)
-
-r"""C:\Users\henbruas\AppData\Local\pypoetry\Cache\virtualenvs\deep-mcts-py3.7\Scripts\python.exe "D:/OneDrive - NTNU/NTNU/IT3105/Deep MCTS/deep_mcts/tictactoe/game.py"
-(0, 2)
-###
-###
-###
------
-(0, 1)
-###
-###
-X##
------
-(1, 1)
-###
-O##
-X##
------
-(2, 0)
-###
-OX#
-X##
------
-(2, 2)
-##O
-OX#
-X##
------
-(1, 2)
-##O
-OX#
-X#X
------
-(0, 0)
-##O
-OX#
-XOX
------
-X#O
-OX#
-XOX
-0
-
-Process finished with exit code 0
-"""
