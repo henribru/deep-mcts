@@ -207,6 +207,21 @@ class GTPInterface(ABC, Generic[_S, _A]):
     ) -> str:
         ...
 
+    def start(self) -> None:
+        while True:
+            command = input("")
+            if not command:
+                continue
+            try:
+                result = self.run_command(command)
+            except ValueError as e:
+                print(f"? {e}\n")
+            else:
+                if result is None:
+                    print("= \n")
+                else:
+                    print(f"= {result}\n")
+
 
 class GTPAgent(Agent[_S, _A]):
     def __init__(self, manager: GameManager[_S, _A], grid_size: int) -> None:

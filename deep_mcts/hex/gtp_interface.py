@@ -60,17 +60,4 @@ class HexGTPInterface(GTPInterface[HexState, HexAction]):
 
 
 if __name__ == "__main__":
-    gtp_interface = HexGTPInterface()
-    while True:
-        command = input("")
-        if not command:
-            continue
-        try:
-            result = gtp_interface.run_command(command)
-        except ValueError as e:
-            print(f"? {e}\n")
-        else:
-            if result is None:
-                print("= \n")
-            else:
-                print(f"= {result}\n")
+    HexGTPInterface().start()
