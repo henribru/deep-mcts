@@ -7,7 +7,7 @@ import torch
 from deep_mcts.game import State, GameManager
 from deep_mcts.gamenet import GameNet, DEVICE
 from deep_mcts.mcts import MCTS, MCTSAgent, Player
-from deep_mcts.tournament import RandomAgent, compare_agents
+from deep_mcts.tournament import RandomAgent, compare_agents, AgentComparison
 from torch import multiprocessing
 import queue
 
@@ -25,7 +25,9 @@ def create_self_play_examples(
     games_queue: "multiprocessing.Queue[List[Tuple[_S, Dict[_A, float], float]]]",
     epsilon: float,
 ) -> None:
-    game_net.net.eval()
+    original_game_net = game_net
+    game_net = game_net.copy()
+    game_net.to(torch.device("cuda:0"))
     for i in range(num_games):
         mcts = MCTS(
             game_manager,
@@ -48,39 +50,156 @@ def create_self_play_examples(
                 for state, visit_distribution in examples
             ]
         )
-        if i % 100 == 0:
-            print(process_number, i)
+        game_net.net.load_state_dict(original_game_net.net.state_dict())
+        if i % 100 == 0 and process_number == 0:
+            print(f"{time.strftime('%H:%M:%S')} {i}")
+            cached_methods = [
+                "generate_child_state",
+                "generate_child_states",
+                "legal_actions",
+                "is_final_state",
+                "evaluate_final_state",
+            ]
+            for method in cached_methods:
+                cache_info = getattr(game_manager, method).cache_info()
+                hit_ratio = cache_info.hits / (cache_info.hits + cache_info.misses)
+                print(f"{method}: {hit_ratio * 100:.1f}%")
 
 
-def train(
+# def evaluate(
+#     process_number: int,
+#     game_manager: GameManager[_S, _A],
+#     num_simulations: int,
+#     rollout_policy: Optional[Callable[[_S], _A]],
+#     game_net_queue: "multiprocessing.Queue[GameNet[_S, _A]]",
+#     results_queue: "multiprocessing.Queue[Tuple[float, AgentComparison, AgentComparison]]",
+#     epsilon: float,
+# ) -> None:
+#     previous_game_net = game_net_queue.get()
+#     previous_game_net.to(torch.device("cuda:1"))
+#     prev_evaluation_time = time.perf_counter()
+#     while True:
+#         try:
+#             game_net = game_net_queue.get()
+#         except OSError:
+#             break
+#         game_net.to(torch.device("cuda:1"))
+#         print(f"{time.strftime('%H:%M:%S')} evaluating")
+#         random_mcts_evaluation = compare_agents(
+#             (
+#                 MCTSAgent(
+#                     MCTS(
+#                         game_manager,
+#                         num_simulations,
+#                         rollout_policy,
+#                         state_evaluator=game_net.evaluate_state,
+#                     )
+#                 ),
+#                 MCTSAgent(
+#                     MCTS(
+#                         game_manager,
+#                         num_simulations * 4,
+#                         lambda s: random.choice(game_manager.legal_actions(s)),
+#                         state_evaluator=None,
+#                     )
+#                 ),
+#             ),
+#             20,
+#             game_manager,
+#         )
+#         previous_evaluation = compare_agents(
+#             (
+#                 MCTSAgent(
+#                     MCTS(
+#                         game_manager,
+#                         num_simulations,
+#                         rollout_policy,
+#                         state_evaluator=game_net.evaluate_state,
+#                         epsilon=epsilon,
+#                     )
+#                 ),
+#                 MCTSAgent(
+#                     MCTS(
+#                         game_manager,
+#                         num_simulations,
+#                         rollout_policy,
+#                         state_evaluator=previous_game_net.evaluate_state,
+#                         epsilon=epsilon,
+#                     )
+#                 ),
+#             ),
+#             20,
+#             game_manager,
+#         )
+#         print(f"{time.strftime('%H:%M:%S')} done evaluating")
+#         previous_game_net = game_net
+#         results_queue.put(
+#             (
+#                 time.perf_counter() - prev_evaluation_time,
+#                 previous_evaluation,
+#                 random_mcts_evaluation,
+#             )
+#         )
+#         prev_evaluation_time = time.perf_counter()
+
+
+def get_new_examples(
+    games_queue: "multiprocessing.Queue[List[Tuple[_S, Dict[_A, float], float]]]",
+    self_playing_context: multiprocessing.SpawnContext,
+    game_net: GameNet[_S, _A],
+    block: bool = False,
+) -> Tuple[int, List[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]]:
+    new_examples: List[Tuple[_S, Dict[_A, float], float]] = []
+    games_count = 0
+    while True:
+        block = block and not new_examples
+        try:
+            examples = games_queue.get(block, timeout=1)
+            games_count += 1
+            new_examples.extend(examples)
+        except queue.Empty:
+            if block and not self_playing_context.join(0):
+                continue
+            break
+    if not new_examples:
+        return 0, []
+    states, probability_targets, value_targets = zip(*new_examples)
+    value_targets = torch.tensor(value_targets, dtype=torch.float32).reshape((-1, 1))
+    assert value_targets.shape[0] == len(new_examples)
+    probability_targets = game_net.distributions_to_tensor(states, probability_targets)
+    assert probability_targets.shape[0] == len(new_examples)
+    states = game_net.states_to_tensor(states)
+    assert states.shape[0] == len(new_examples)
+    return games_count, list(zip(states, probability_targets, value_targets))
+
+
+def sample_replay_buffer(
+    replay_buffer: Deque[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]],
+    batch_size: int,
+    device: torch.device,
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    examples = random.sample(replay_buffer, min(batch_size, len(replay_buffer)))
+    states, probability_targets, value_targets = zip(*examples)
+    states = torch.stack(states).to(device)
+    probability_targets = torch.stack(probability_targets).to(device)
+    value_targets = torch.stack(value_targets).to(device)
+    return states, probability_targets, value_targets
+
+
+def spawn_self_play_example_creators(
     game_net: GameNet[_S, _A],
     game_manager: GameManager[_S, _A],
     num_games: int,
     num_simulations: int,
-    save_interval: int,
-    evaluation_interval: int,
-    rollout_policy: Optional[Callable[[_S], _A]] = None,
-) -> Iterable[
-    Tuple[int, Tuple[float, float, float], Optional[Tuple[float, float, float]]]
+    rollout_policy: Optional[Callable[[_S], _A]],
+    epsilon: float,
+    nprocs: int,
+) -> Tuple[
+    multiprocessing.SpawnContext,
+    "multiprocessing.Queue[List[Tuple[_S, Dict[_A, float], float]]]",
 ]:
-    replay_buffer = Deque[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]([], 100_000)
-    game_net.save(f"saves/anet-0.pth")
-    random_opponent = RandomAgent(game_manager)
-    original_opponent = game_net.copy()
-    epsilon = 0.05
-    original_agent = MCTSAgent(
-        MCTS(
-            game_manager,
-            num_simulations,
-            rollout_policy,
-            state_evaluator=original_opponent.evaluate_state,
-            epsilon=epsilon,
-        )
-    )
-    previous_agent: Optional[MCTSAgent[_S, _A]] = None
-    multiprocessing.set_start_method("spawn")
     games_queue: "multiprocessing.Queue[List[Tuple[_S, Dict[_A, float], float]]]" = multiprocessing.Queue()
-    spawn_context = multiprocessing.spawn(
+    context = multiprocessing.spawn(
         create_self_play_examples,
         (
             game_net,
@@ -91,77 +210,113 @@ def train(
             games_queue,
             epsilon,
         ),
-        nprocs=26,
+        nprocs=nprocs,
         join=False,
     )
-    i = 0
+    return context, games_queue
+
+
+# def spawn_evaluator(
+#     game_manager: GameManager[_S, _A],
+#     num_games: int,
+#     num_simulations: int,
+#     rollout_policy: Optional[Callable[[_S], _A]],
+#     epsilon: float,
+# ) -> Tuple[
+#     multiprocessing.SpawnContext,
+#     "multiprocessing.Queue[GameNet[_S, _A]]",
+#     "multiprocessing.Queue[Tuple[float, AgentComparison, AgentComparison]]",
+# ]:
+#     game_net_queue: "multiprocessing.Queue[GameNet[_S, _A]]" = multiprocessing.Queue()
+#     evaluation_results_queue: "multiprocessing.Queue[Tuple[float, AgentComparison, AgentComparison]]" = multiprocessing.Queue()
+#     context = multiprocessing.spawn(
+#         evaluate,
+#         (
+#             game_manager,
+#             num_simulations,
+#             rollout_policy,
+#             game_net_queue,
+#             evaluation_results_queue,
+#             epsilon,
+#         ),
+#         nprocs=1,
+#         join=False,
+#     )
+#     return context, game_net_queue, evaluation_results_queue
+
+
+def train(
+    game_net: GameNet[_S, _A],
+    game_manager: GameManager[_S, _A],
+    num_games: int,
+    num_simulations: int,
+    save_interval: int,
+    evaluation_interval: int,
+    save_dir: str,
+    rollout_policy: Optional[Callable[[_S], _A]] = None,
+    epsilon: float = 0.05,
+    nprocs: int = 25,
+    batch_size: int = 512,
+    replay_buffer_max_size: int = 100_000,
+) -> Iterable[Tuple[int, AgentComparison, AgentComparison]]:
+    print(f"{time.strftime('%H:%M:%S')} Starting")
+    device = torch.device("cuda:1")
+    game_net.to(device)
+    replay_buffer = Deque[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]](
+        [], replay_buffer_max_size
+    )
+    game_net.save(f"{save_dir}/anet-0.pth")
+    multiprocessing.set_start_method("spawn")
+    self_playing_context, games_queue = spawn_self_play_example_creators(
+        game_net,
+        game_manager,
+        num_games,
+        num_simulations,
+        rollout_policy,
+        epsilon,
+        nprocs,
+    )
+    previous_game_net = game_net.copy()
+    training_iterations = 0
+    training_games_count = 0
+    training_examples_count = 0
     prev_evaluation_time = time.perf_counter()
-    start_time = time.perf_counter()
-    while not spawn_context.join(0):
-        new_examples: List[Tuple[_S, Dict[_A, float], float]] = []
-        while True:
-            try:
-                block = not replay_buffer and not new_examples
-                new_examples.extend(games_queue.get(block, timeout=1))
-            except queue.Empty:
-                if block and not spawn_context.join(0):
-                    continue
-                break
-        if new_examples:
-            states, probability_targets, value_targets = zip(*new_examples)
-            value_targets = torch.tensor(value_targets, dtype=torch.float32).reshape(
-                (-1, 1)
-            )
-            assert value_targets.shape[0] == len(new_examples)
-            probability_targets = game_net.distributions_to_tensor(
-                states, probability_targets
-            )
-            assert probability_targets.shape[0] == len(new_examples)
-            states = game_net.states_to_tensor(states)
-            assert states.shape[0] == len(new_examples)
-            for j in range(len(new_examples)):
-                replay_buffer.append(
-                    (states[j], probability_targets[j], value_targets[j])
-                )
-            # print(len(replay_buffer) / (time.perf_counter() - start_time))
-        examples = random.sample(replay_buffer, min(512, len(replay_buffer)))
-        states, probability_targets, value_targets = zip(*examples)  # type: ignore
-        states = torch.stack(states).to(DEVICE)  # type: ignore
-        probability_targets = torch.stack(probability_targets).to(  # type: ignore
-            DEVICE
+    while not self_playing_context.join(0):
+        new_games_count, new_examples = get_new_examples(
+            games_queue, self_playing_context, game_net, block=len(replay_buffer) == 0
         )
-        value_targets = torch.stack(value_targets).to(DEVICE)  # type: ignore
+        training_games_count += new_games_count
+        training_examples_count += len(new_examples)
+        replay_buffer.extend(new_examples)
+        states, probability_targets, value_targets = sample_replay_buffer(
+            replay_buffer, batch_size, device
+        )
         game_net.train(states, probability_targets, value_targets)
-        if evaluation_interval != 0 and (i + 1) % evaluation_interval == 0:
-            game_net.net.eval()
-            print("evaluating")
-            best_agent = MCTSAgent(
-                MCTS(
-                    game_manager,
-                    100,
-                    rollout_policy,
-                    state_evaluator=game_net.evaluate_state,
-                )
-            )
-            sampling_agent = MCTSAgent(
-                MCTS(
-                    game_manager,
-                    100,
-                    rollout_policy,
-                    state_evaluator=game_net.evaluate_state,
-                    epsilon=epsilon,
-                )
-            )
-            random_evaluation = compare_agents(
-                (best_agent, random_opponent), 20, game_manager
-            )
+
+        if save_interval != 0 and (training_iterations + 1) % save_interval == 0:
+            filepath = f"{save_dir}/anet-{training_iterations + 1}.pth"
+            game_net.save(filepath)
+            print(f"{time.strftime('%H:%M:%S')} Saved {filepath}")
+
+        if (
+            evaluation_interval != 0
+            and (training_iterations + 1) % evaluation_interval == 0
+        ):
+            print(f"{time.strftime('%H:%M:%S')} evaluating")
             random_mcts_evaluation = compare_agents(
                 (
-                    best_agent,
                     MCTSAgent(
                         MCTS(
                             game_manager,
                             num_simulations,
+                            rollout_policy,
+                            state_evaluator=game_net.evaluate_state,
+                        )
+                    ),
+                    MCTSAgent(
+                        MCTS(
+                            game_manager,
+                            num_simulations * 4,
                             lambda s: random.choice(game_manager.legal_actions(s)),
                             state_evaluator=None,
                         )
@@ -170,33 +325,38 @@ def train(
                 20,
                 game_manager,
             )
-            original_evaluation = compare_agents(
-                (sampling_agent, original_agent), 20, game_manager
-            )
-            previous_evaluation = (
-                compare_agents((sampling_agent, previous_agent), 20, game_manager)
-                if previous_agent is not None
-                else original_evaluation
-            )
-            previous_agent = MCTSAgent(
-                MCTS(
-                    game_manager,
-                    num_simulations,
-                    rollout_policy,
-                    state_evaluator=game_net.copy().evaluate_state,
-                    epsilon=epsilon,
-                )
+            previous_evaluation = compare_agents(
+                (
+                    MCTSAgent(
+                        MCTS(
+                            game_manager,
+                            num_simulations,
+                            rollout_policy,
+                            state_evaluator=game_net.evaluate_state,
+                            epsilon=epsilon,
+                        )
+                    ),
+                    MCTSAgent(
+                        MCTS(
+                            game_manager,
+                            num_simulations,
+                            rollout_policy,
+                            state_evaluator=previous_game_net.evaluate_state,
+                            epsilon=epsilon,
+                        )
+                    ),
+                ),
+                20,
+                game_manager,
             )
             print(
-                f"i: {i + 1}, t: {time.perf_counter() - prev_evaluation_time} random: {random_evaluation} "
-                f"previous: {previous_evaluation} original: {original_evaluation} random MCTS: {random_mcts_evaluation} "
-                f"moves: {len(replay_buffer)}"
+                f"{time.strftime('%H:%M:%S')} "
+                f"iterations: {training_iterations} games: {training_games_count} "
+                f"examples: {training_examples_count} evaluation_duration: {time.perf_counter() - prev_evaluation_time:.2f} "
+                f"previous: {previous_evaluation} random MCTS: {random_mcts_evaluation} "
             )
             prev_evaluation_time = time.perf_counter()
-            game_net.net.train()
-            yield i + 1, random_evaluation, previous_evaluation
-        if save_interval != 0 and (i + 1) % save_interval == 0:
-            filepath = f"saves/anet-{i + 1}.pth"
-            game_net.save(filepath)
-            print(f"Saved {filepath}")
-        i += 1
+            previous_game_net = game_net.copy()
+            yield training_iterations, random_mcts_evaluation, previous_evaluation
+
+        training_iterations += 1

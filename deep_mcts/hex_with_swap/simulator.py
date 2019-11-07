@@ -2,6 +2,7 @@ from deep_mcts import train
 from deep_mcts.hex_with_swap.convolutionalnet import ConvolutionalHexNet
 from deep_mcts.hex_with_swap.game import HexWithSwapManager
 import pandas as pd
+import os.path
 
 
 def hex_simulator(
@@ -13,6 +14,7 @@ def hex_simulator(
 ) -> None:
     manager = HexWithSwapManager(grid_size)
     anet = ConvolutionalHexNet(grid_size)
+    save_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), "saves")
     evaluations = pd.DataFrame.from_dict(
         {
             i: (random_evaluation, previous_evaluation)
@@ -23,6 +25,7 @@ def hex_simulator(
                 num_simulations,
                 save_interval,
                 evaluation_interval,
+                save_dir,
             )
         },
         orient="index",

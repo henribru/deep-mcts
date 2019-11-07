@@ -1,17 +1,27 @@
 from abc import ABC, abstractmethod
-from typing import Callable, Dict, Tuple, TypeVar, Sequence, Generic, Mapping, Type, Any
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generic,
+    Mapping,
+    Sequence,
+    Tuple,
+    Type,
+    TypeVar,
+    TYPE_CHECKING,
+)
 
 import numpy as np
-import torch.optim.optimizer
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch
+import torch.optim.optimizer
 
-from deep_mcts.game import State, Player
-
+from deep_mcts.game import Player, State
 from deep_mcts.tournament import Agent
 
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 # DEVICE = torch.device("cpu")
 
 
@@ -33,21 +43,24 @@ def cross_entropy(
 
 _S = TypeVar("_S", bound=State)
 _A = TypeVar("_A")
-_T = TypeVar("_T", bound="GameNet")  # type: ignore
+_T = TypeVar("_T", bound="GameNet")  # type: ignore[type-arg]
 
 
 class GameNet(ABC, Generic[_S, _A]):
     net: "nn.Module[Tuple[torch.Tensor, torch.Tensor]]"
     policy_criterion: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
-    value_criterion: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
+    value_criterion: nn.MSELoss
     optimizer: "torch.optim.optimizer.Optimizer"
+    device: torch.device
 
     def __init__(self) -> None:
-        self.policy_criterion = cross_entropy  # type: ignore
-        self.value_criterion = nn.MSELoss().to(DEVICE)  # type: ignore
+        self.policy_criterion = cross_entropy  # type: ignore[assignment, misc]
+        self.value_criterion = nn.MSELoss()  # type: ignore[assignment, misc]
+        self.device = torch.device("cpu")
 
     def forward(self, state: _S) -> Tuple[float, torch.Tensor]:
-        states = self.state_to_tensor(state).to(DEVICE)
+        self.net.eval()
+        states = self.state_to_tensor(state).to(self.device)
         with torch.autograd.no_grad():
             value, probabilities = self.net.forward(states.float())
         value = torch.tanh(value)
@@ -67,7 +80,7 @@ class GameNet(ABC, Generic[_S, _A]):
         assert probabilities.shape == shape
         assert torch.allclose(
             torch.sum(probabilities, dim=tuple(range(1, probabilities.dim()))),
-            torch.tensor([1.0], device=DEVICE),
+            torch.tensor([1.0], device=self.device),
         )
         return value.item(), probabilities.cpu().detach()
 
@@ -95,6 +108,7 @@ class GameNet(ABC, Generic[_S, _A]):
         probability_targets: torch.Tensor,
         value_targets: torch.Tensor,
     ) -> None:
+        self.net.train()
         values, probabilities = self.net.forward(states.float())
         values = torch.tanh(values)
         assert probabilities.shape[0] == states.shape[0]
@@ -116,11 +130,13 @@ class GameNet(ABC, Generic[_S, _A]):
         #  )
         assert probabilities.shape == probability_targets.shape
         assert values.shape == value_targets.shape
-        loss = self.policy_criterion(  # type: ignore
+        policy_loss = self.policy_criterion(  # type: ignore[misc, call-arg]
             probabilities, probability_targets
-        ) + self.value_criterion(  # type: ignore
+        )
+        value_loss = self.value_criterion(  # type: ignore[misc, call-arg]
             values, value_targets
         )
+        loss = policy_loss + value_loss
         assert loss.shape == ()
         self.optimizer.zero_grad()
         loss.backward()
@@ -130,7 +146,7 @@ class GameNet(ABC, Generic[_S, _A]):
         torch.save(self.net.state_dict(), path)
 
     def load(self, path: str) -> None:
-        self.net.load_state_dict(torch.load(path))
+        self.net.load_state_dict(torch.load(path, map_location=self.device))
 
     @abstractmethod
     def state_to_tensor(self, state: _S) -> torch.Tensor:
@@ -150,9 +166,15 @@ class GameNet(ABC, Generic[_S, _A]):
     def copy(self: _T) -> _T:
         ...
 
+    def to(self: _T, device: torch.device) -> _T:
+        self.device = device
+        self.value_criterion.to(device)
+        self.net.to(device)
+        return self
+
     @classmethod
     def from_path(cls: Type[_T], path: str, *args: Any, **kwargs: Any) -> _T:
-        anet = cls(*args, **kwargs)  # type: ignore
+        anet = cls(*args, **kwargs)  # type: ignore[call-arg]
         anet.load(path)
         return anet
 

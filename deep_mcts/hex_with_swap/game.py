@@ -1,16 +1,27 @@
 import random
 import string
+from functools import lru_cache
 
 from dataclasses import dataclass
-from typing import Dict, Tuple, List, Iterable, MutableSet, Optional, Union, Set
+from typing import (
+    Dict,
+    Tuple,
+    List,
+    Iterable,
+    MutableSet,
+    Optional,
+    Union,
+    Set,
+    Mapping,
+)
 
-from deep_mcts.game import GameManager, Player, State, CellState
+from deep_mcts.game import GameManager, Player, State, CellState, Outcome
 from deep_mcts.mcts import MCTS
 
 
 @dataclass(frozen=True)
 class HexState(State):
-    grid: List[List[CellState]]
+    grid: Tuple[Tuple[CellState, ...], ...]
 
     def __str__(self) -> str:
         symbol = {-1: ".", 0: "0", 1: "1"}
@@ -50,45 +61,43 @@ class HexWithSwapManager(GameManager[HexState, HexAction]):
     def initial_game_state(self) -> HexState:
         return HexState(
             Player.FIRST,
-            [
-                [CellState.EMPTY for _ in range(self.grid_size)]
+            tuple(
+                tuple(CellState.EMPTY for _ in range(self.grid_size))
                 for _ in range(self.grid_size)
-            ],
+            ),
         )
 
-    def generate_child_states(self, state: HexState) -> Dict[HexAction, HexState]:
-        child_states = {
-            action: self.generate_child_state(state, action)
-            for action in self.legal_actions(state)
-        }
-        assert set(child_states.keys()) == set(self.legal_actions(state))
-        return child_states
-
-    def generate_child_state(self, state: HexState, action: HexAction) -> HexState:
+    @lru_cache(maxsize=2 ** 20)
+    def generate_child_state(  # type: ignore[override]
+        self, state: HexState, action: HexAction
+    ) -> HexState:
         assert action in self.legal_actions(state)
         if isinstance(action, HexSwap):
             return HexState(
                 state.player.opposite(),
-                [
-                    [state.grid[j][i].opposite() for i in range(self.grid_size)]
+                tuple(
+                    tuple(state.grid[j][i].opposite() for i in range(self.grid_size))
                     for j in range(self.grid_size)
-                ],
+                ),
             )
         x, y = action.coordinate
         return HexState(
             state.player.opposite(),
-            [
-                [
-                    CellState(state.player) if (i, j) == (x, y) else state.grid[j][i]
-                    for i in range(self.grid_size)
-                ]
-                if j == y
-                else state.grid[j]
-                for j in range(self.grid_size)
-            ],
+            tuple(
+                tuple(
+                    CellState(state.player) if (j, i) == (x, y) else cell
+                    for j, cell in enumerate(row)
+                )
+                if i == y
+                else row
+                for i, row in enumerate(state.grid)
+            ),
         )
 
-    def legal_actions(self, state: HexState) -> List[HexAction]:
+    @lru_cache(maxsize=2 ** 20)
+    def legal_actions(  # type: ignore[override]
+        self, state: HexState
+    ) -> List[HexAction]:
         actions: List[HexAction] = []
         if (
             state.player == Player.SECOND
@@ -108,7 +117,10 @@ class HexWithSwapManager(GameManager[HexState, HexAction]):
     def is_final_state(self, state: HexState) -> bool:
         return self.evaluate_final_state(state) != 0
 
-    def evaluate_final_state(self, state: HexState) -> int:
+    @lru_cache(maxsize=2 ** 20)
+    def evaluate_final_state(  # type: ignore[override]
+        self, state: HexState
+    ) -> int:
         starts = (
             (0, y)
             for y in range(self.grid_size)
@@ -119,7 +131,7 @@ class HexWithSwapManager(GameManager[HexState, HexAction]):
             self._traverse_from(start, Player.SECOND, state, visited)
             for start in starts
         ):
-            return 1
+            return Outcome.SECOND_PLAYER_WIN
         starts = (
             (x, 0)
             for x in range(self.grid_size)
@@ -128,8 +140,8 @@ class HexWithSwapManager(GameManager[HexState, HexAction]):
         if any(
             self._traverse_from(start, Player.FIRST, state, visited) for start in starts
         ):
-            return -1
-        return 0
+            return Outcome.FIRST_PLAYER_WIN
+        return Outcome.DRAW
 
     def _traverse_from(
         self,
@@ -192,7 +204,9 @@ def hex_simulator(grid_size: int, num_simulations: int) -> None:
     print(state.player)
 
 
-def hex_probabilities_grid(action_probabilities, grid_size):
+def hex_probabilities_grid(
+    action_probabilities: Mapping[HexAction, float], grid_size: int
+) -> str:
     board = [[0.0 for _ in range(grid_size)] for _ in range(grid_size)]
     swap_probability = 0.0
     for action, probability in action_probabilities.items():

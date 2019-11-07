@@ -1,19 +1,19 @@
 from deep_mcts import train
-from deep_mcts.hex.convolutionalnet import ConvolutionalHexNet
-from deep_mcts.hex.game import HexManager
+from deep_mcts.othello.convolutionalnet import ConvolutionalOthelloNet
+from deep_mcts.othello.game import OthelloManager
 import pandas as pd
 import os.path
 
 
-def hex_simulator(
+def othello_simulator(
     grid_size: int,
     num_games: int,
     num_simulations: int,
     save_interval: int,
     evaluation_interval: int,
 ) -> None:
-    manager = HexManager(grid_size)
-    anet = ConvolutionalHexNet(grid_size)
+    manager = OthelloManager(grid_size)
+    anet = ConvolutionalOthelloNet(grid_size)
     save_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), "saves")
     evaluations = pd.DataFrame.from_dict(
         {
@@ -36,14 +36,10 @@ def hex_simulator(
 
 if __name__ == "__main__":
     num_actual_games = 1000
-    hex_simulator(
-        5,
+    othello_simulator(
+        6,
         num_actual_games,
         num_simulations=25,
         save_interval=10000,
-        evaluation_interval=10000,
+        evaluation_interval=100,
     )
-    # state_manager = HexManager(4)
-    # print(topp([ConvolutionalHexNet(4).sampling_policy, ConvolutionalHexNet(4).sampling_policy], 100, state_manager))
-    # agents = [ConvolutionalHexNet.from_path(f"anet-{i}.pth", 4).sampling_policy for i in range(0, 110, 10)]
-    # import pprint;pprint.pprint(topp(agents, 25, state_manager))

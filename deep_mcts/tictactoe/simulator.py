@@ -4,6 +4,7 @@ from deep_mcts import train
 from deep_mcts.tictactoe.convolutionalnet import ConvolutionalTicTacToeNet
 from deep_mcts.tictactoe.game import TicTacToeManager
 import pandas as pd
+import os.path
 
 from deep_mcts.tictactoe.fullyconnectednet import FullyConnectedTicTacToeNet
 
@@ -16,6 +17,7 @@ def tic_tac_toe_simulator(
 ) -> None:
     manager = TicTacToeManager()
     anet = ConvolutionalTicTacToeNet()
+    save_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), "saves")
     evaluations = pd.DataFrame.from_dict(
         {
             i: (random_evaluation, previous_evaluation)
@@ -26,6 +28,7 @@ def tic_tac_toe_simulator(
                 num_search_games,
                 save_interval,
                 evaluation_interval,
+                save_dir,
             )
         },
         orient="index",

@@ -29,7 +29,7 @@ class FullyConnectedTicTacToeModule(TensorPairModule):
         self.value_head = nn.Linear(128, 1)
         self.policy_head = nn.Linear(128, 3 ** 2)
 
-    def forward(  # type: ignore
+    def forward(  # type: ignore[override]
         self, x: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         input = x
@@ -48,7 +48,7 @@ class FullyConnectedTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
 
     def __init__(self) -> None:
         super().__init__()
-        self.net = FullyConnectedTicTacToeModule().to(DEVICE)
+        self.net = FullyConnectedTicTacToeModule()
         self.manager = TicTacToeManager()
         self.optimizer = torch.optim.SGD(self.net.parameters(), lr=0.01, momentum=0.9)
 
@@ -56,7 +56,9 @@ class FullyConnectedTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
         self, states: Sequence[TicTacToeState], output: torch.Tensor
     ) -> torch.Tensor:
         states = torch.tensor([state.grid for state in states]).reshape(-1, 9)
-        legal_moves = (states == CellState.EMPTY).to(dtype=torch.float32, device=DEVICE)
+        legal_moves = (states == CellState.EMPTY).to(
+            dtype=torch.float32, device=self.device
+        )
         assert legal_moves.shape == output.shape
         result = output * legal_moves
         assert result.shape == output.shape
@@ -81,7 +83,7 @@ class FullyConnectedTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
         action_probabilities = action_probabilities[0, :]
         assert action_probabilities.shape == (3 ** 2,)
         action = torch.argmax(action_probabilities).item()
-        x, y = action % 3, action // 3
+        x, y = np.unravel_index(action, shape=(3, 3))
         return TicTacToeAction((x, y))
 
     def evaluate_state(
@@ -143,7 +145,7 @@ class FullyConnectedTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
         # ).reshape((-1, 1))
         # assert np.all((current_player.sum(axis=1) - other_player.sum(axis=1)) <= 1)
         # grids = np.concatenate((current_player, other_player, players), axis=1)
-        # tensor = torch.as_tensor(grids, dtype=torch.float32, device=DEVICE)
+        # tensor = torch.as_tensor(grids, dtype=torch.float32, device=self.device)
         # assert tensor.shape == (len(grids), 2 * 3 ** 2 + 1)
         # return tensor
 
