@@ -10,6 +10,7 @@ from deep_mcts.mcts import play_random_mcts
 
 @dataclass(frozen=True)
 class HexState(State):
+    __slots__ = ["grid"]
     grid: Tuple[Tuple[CellState, ...], ...]
 
     def __str__(self) -> str:
@@ -29,6 +30,7 @@ class HexState(State):
 
 @dataclass(frozen=True)
 class HexAction:
+    __slots__ = ["coordinate"]
     coordinate: Tuple[int, int]
 
     def __str__(self) -> str:

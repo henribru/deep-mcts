@@ -12,6 +12,7 @@ from deep_mcts.mcts import play_random_mcts
 
 @dataclass(frozen=True)
 class OthelloState(State):
+    __slots__ = ["grid"]
     grid: Tuple[Tuple[CellState, ...], ...]
 
     def __str__(self) -> str:
@@ -29,6 +30,7 @@ class OthelloState(State):
 
 @dataclass(frozen=True)
 class OthelloMove:
+    __slots__ = ["coordinate"]
     coordinate: Tuple[int, int]
 
     def generate_child_state(self, state: OthelloState) -> OthelloState:

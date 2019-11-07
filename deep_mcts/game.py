@@ -39,6 +39,7 @@ class Outcome(IntEnum):
 
 @dataclass(frozen=True)
 class State:
+    __slots__ = ["player"]
     player: Player
 
 

@@ -14,6 +14,7 @@ _A = TypeVar("_A")
 
 
 class Node(Generic[_S, _A]):
+    __slots__ = ["state", "children", "E", "N", "P"]
     state: _S
     children: Dict[_A, "Node[_S, _A]"]
     E: float

@@ -10,11 +10,13 @@ from deep_mcts.mcts import MCTS, play_random_mcts
 
 @dataclass(frozen=True)
 class TicTacToeState(State):
+    __slots__ = ["grid"]
     grid: Tuple[Tuple[CellState, ...], ...]
 
 
 @dataclass(frozen=True)
 class TicTacToeAction:
+    __slots__ = ["coordinate"]
     coordinate: Tuple[int, int]
 
 
