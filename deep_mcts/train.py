@@ -24,10 +24,12 @@ def create_self_play_examples(
     rollout_policy: Optional[Callable[[_S], _A]],
     games_queue: "multiprocessing.Queue[List[Tuple[_S, Dict[_A, float], float]]]",
     epsilon: float,
+    device: Optional[torch.device],
 ) -> None:
-    original_game_net = game_net
-    game_net = game_net.copy()
-    game_net.to(torch.device("cuda:0"))
+    if device is not None:
+        original_game_net = game_net
+        game_net = game_net.copy()
+        game_net.to(device)
     for i in range(num_games):
         mcts = MCTS(
             game_manager,
@@ -50,7 +52,8 @@ def create_self_play_examples(
                 for state, visit_distribution in examples
             ]
         )
-        game_net.net.load_state_dict(original_game_net.net.state_dict())
+        if device is not None:
+            game_net.net.load_state_dict(original_game_net.net.state_dict())
         if i % 100 == 0 and process_number == 0:
             print(f"{time.strftime('%H:%M:%S')} {i}")
             cached_methods = [
@@ -156,6 +159,7 @@ def spawn_self_play_example_creators(
     rollout_policy: Optional[Callable[[_S], _A]],
     epsilon: float,
     nprocs: int,
+    device: Optional[torch.device] = None,
 ) -> Tuple[
     multiprocessing.SpawnContext,
     "multiprocessing.Queue[List[Tuple[_S, Dict[_A, float], float]]]",
@@ -171,6 +175,7 @@ def spawn_self_play_example_creators(
             rollout_policy,
             games_queue,
             epsilon,
+            device,
         ),
         nprocs=nprocs,
         join=False,
@@ -295,6 +300,7 @@ def train(
         rollout_policy,
         epsilon,
         nprocs,
+        device=torch.device("cuda:0"),
     )
     previous_game_net = game_net.copy()
     training_iterations = 0
