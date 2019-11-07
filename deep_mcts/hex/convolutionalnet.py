@@ -5,9 +5,7 @@ import numpy as np
 import torch
 import torch.optim
 
-from deep_mcts.convolutionalnet import (
-    ConvolutionalNet,
-)
+from deep_mcts.convolutionalnet import ConvolutionalNet
 from deep_mcts.game import CellState, Player
 from deep_mcts.gamenet import GameNet
 from deep_mcts.hex.game import HexAction, HexManager, HexState

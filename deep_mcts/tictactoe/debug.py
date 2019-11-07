@@ -2,10 +2,7 @@ from typing import Dict
 
 from deep_mcts.mcts import MCTS, MCTSAgent
 from deep_mcts.tictactoe.fullyconnectednet import FullyConnectedTicTacToeNet
-from deep_mcts.tictactoe.game import (
-    TicTacToeAction,
-    TicTacToeManager,
-)
+from deep_mcts.tictactoe.game import TicTacToeAction, TicTacToeManager
 
 
 def print_probabilities_grid(probabilities: Dict[TicTacToeAction, float]) -> None:

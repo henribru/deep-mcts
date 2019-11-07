@@ -1,16 +1,7 @@
 import os.path
 import sys
 from abc import ABC, abstractmethod
-from typing import (
-    Callable,
-    Dict,
-    List,
-    NoReturn,
-    Optional,
-    TypeVar,
-    Generic,
-    Mapping,
-)
+from typing import Callable, Dict, List, NoReturn, Optional, TypeVar, Generic, Mapping
 
 import dataclasses
 import pexpect

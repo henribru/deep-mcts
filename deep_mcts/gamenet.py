@@ -1,15 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Generic,
-    Mapping,
-    Sequence,
-    Tuple,
-    Type,
-    TypeVar,
-)
+from typing import Any, Callable, Dict, Generic, Mapping, Sequence, Tuple, Type, TypeVar
 
 import torch
 import torch.nn as nn
