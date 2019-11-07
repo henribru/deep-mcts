@@ -1,8 +1,8 @@
-import os.path
 import re
 import string
 from typing import Callable, Dict, List, Optional, Mapping
 
+from deep_mcts.gtp_interface import GTPInterface
 from deep_mcts.hex_with_swap.convolutionalnet import ConvolutionalHexWithSwapNet
 from deep_mcts.hex_with_swap.game import (
     HexWithSwapAction,
@@ -13,7 +13,6 @@ from deep_mcts.hex_with_swap.game import (
     hex_with_swap_probabilities_grid,
 )
 from deep_mcts.mcts import MCTS
-from deep_mcts.gtp_interface import GTPInterface
 
 
 class HexWithSwapGTPInterface(GTPInterface[HexState, HexWithSwapAction]):

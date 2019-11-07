@@ -1,8 +1,8 @@
 import random
 from functools import lru_cache
+from typing import Iterable, List, Tuple
 
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Tuple
 
 from deep_mcts.game import CellState, GameManager, Player, State, Outcome
 from deep_mcts.mcts import MCTS, play_random_mcts

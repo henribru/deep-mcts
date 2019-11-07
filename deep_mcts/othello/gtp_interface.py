@@ -1,9 +1,9 @@
-import dataclasses
 import os.path
 import re
 import string
 from typing import Mapping
 
+from deep_mcts.gtp_interface import GTPInterface
 from deep_mcts.othello.convolutionalnet import ConvolutionalOthelloNet
 from deep_mcts.othello.game import (
     OthelloAction,
@@ -12,7 +12,6 @@ from deep_mcts.othello.game import (
     OthelloManager,
     OthelloState,
 )
-from deep_mcts.gtp_interface import GTPInterface
 from deep_mcts.othello.game import othello_probabilities_grid
 
 

@@ -1,15 +1,11 @@
 from typing import Dict
 
-from deep_mcts.mcts import MCTS, Node, MCTSAgent
-from deep_mcts.tictactoe.convolutionalnet import ConvolutionalTicTacToeNet
+from deep_mcts.mcts import MCTS, MCTSAgent
 from deep_mcts.tictactoe.fullyconnectednet import FullyConnectedTicTacToeNet
 from deep_mcts.tictactoe.game import (
-    TicTacToeState,
     TicTacToeAction,
-    print_tic_tac_toe_grid,
     TicTacToeManager,
 )
-from deep_mcts.tournament import tournament, RandomAgent
 
 
 def print_probabilities_grid(probabilities: Dict[TicTacToeAction, float]) -> None:

@@ -1,27 +1,24 @@
-import dataclasses
 import os.path
-import re
-import string
 import sys
+from abc import ABC, abstractmethod
 from typing import (
     Callable,
     Dict,
     List,
     NoReturn,
     Optional,
-    Tuple,
     TypeVar,
     Generic,
     Mapping,
 )
-from abc import ABC, abstractmethod
+
+import dataclasses
 import pexpect
 
-from deep_mcts.game import Player, Outcome, State, GameManager
+from deep_mcts.game import Player, State, GameManager
 from deep_mcts.gamenet import GameNet, DEVICE
 from deep_mcts.mcts import MCTS, Node
 from deep_mcts.tournament import Agent
-
 
 _S = TypeVar("_S", bound=State)
 _A = TypeVar("_A")

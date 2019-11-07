@@ -3,10 +3,10 @@ import re
 import string
 from typing import Mapping, List
 
+from deep_mcts.gtp_interface import GTPInterface
 from deep_mcts.hex.convolutionalnet import ConvolutionalHexNet
 from deep_mcts.hex.game import HexAction, HexManager, HexState
 from deep_mcts.hex.game import hex_probabilities_grid
-from deep_mcts.gtp_interface import GTPInterface
 
 
 class HexGTPInterface(GTPInterface[HexState, HexAction]):

@@ -1,15 +1,15 @@
+import queue
 import random
 import time
 from typing import Iterable, Tuple, Optional, TypeVar, Callable, Deque, Dict, List
 
 import torch
+from torch import multiprocessing
 
 from deep_mcts.game import State, GameManager
-from deep_mcts.gamenet import GameNet, DEVICE
+from deep_mcts.gamenet import GameNet
 from deep_mcts.mcts import MCTS, MCTSAgent, Player
-from deep_mcts.tournament import RandomAgent, compare_agents, AgentComparison
-from torch import multiprocessing
-import queue
+from deep_mcts.tournament import compare_agents, AgentComparison
 
 _S = TypeVar("_S", bound=State)
 _A = TypeVar("_A")

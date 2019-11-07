@@ -1,8 +1,10 @@
+import os.path
+
+import pandas as pd
+
 from deep_mcts import train
 from deep_mcts.hex_with_swap.convolutionalnet import ConvolutionalHexWithSwapNet
 from deep_mcts.hex_with_swap.game import HexWithSwapManager
-import pandas as pd
-import os.path
 
 
 def hex_simulator(

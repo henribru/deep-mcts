@@ -1,7 +1,6 @@
 from abc import abstractmethod, ABC
 from enum import IntEnum
 from functools import lru_cache
-
 from typing import TypeVar, Dict, Generic, List
 
 from dataclasses import dataclass

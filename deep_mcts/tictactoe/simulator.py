@@ -1,12 +1,10 @@
-from typing import Tuple, Dict, Optional
+import os.path
+
+import pandas as pd
 
 from deep_mcts import train
 from deep_mcts.tictactoe.convolutionalnet import ConvolutionalTicTacToeNet
 from deep_mcts.tictactoe.game import TicTacToeManager
-import pandas as pd
-import os.path
-
-from deep_mcts.tictactoe.fullyconnectednet import FullyConnectedTicTacToeNet
 
 
 def tic_tac_toe_simulator(

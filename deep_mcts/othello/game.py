@@ -1,14 +1,13 @@
+import itertools
+import string
 from functools import lru_cache
+from typing import Iterator, List, Tuple, Union, Set, Mapping
 
 import dataclasses
-import itertools
-import random
-import string
 from dataclasses import dataclass
-from typing import Dict, Iterator, List, Tuple, Union, Set, Mapping
 
 from deep_mcts.game import CellState, GameManager, Outcome, Player, State
-from deep_mcts.mcts import MCTS, play_random_mcts
+from deep_mcts.mcts import play_random_mcts
 
 
 @dataclass(frozen=True)

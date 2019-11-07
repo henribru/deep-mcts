@@ -1,20 +1,13 @@
 from typing import Tuple, Dict, Mapping, Sequence
 
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim
 
 from deep_mcts.convolutionalnet import (
-    ConvolutionalBlock,
-    ResidualBlock,
-    PolicyHead,
-    ValueHead,
     ConvolutionalNet,
 )
 from deep_mcts.game import CellState, Player
 from deep_mcts.gamenet import GameNet
-from deep_mcts.hex.convolutionalnet import ConvolutionalHexNet
 from deep_mcts.hex_with_swap.game import (
     HexWithSwapManager,
     HexState,

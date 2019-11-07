@@ -8,7 +8,7 @@ import torch.nn.functional as F
 import torch.optim
 
 from deep_mcts.game import Player
-from deep_mcts.gamenet import GameNet, DEVICE
+from deep_mcts.gamenet import GameNet
 from deep_mcts.tictactoe.game import (
     TicTacToeState,
     TicTacToeAction,

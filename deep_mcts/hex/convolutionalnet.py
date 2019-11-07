@@ -1,21 +1,15 @@
 import random
-from typing import TYPE_CHECKING, Dict, Mapping, Sequence, Tuple
+from typing import Dict, Mapping, Sequence, Tuple
 
 import numpy as np
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim
 
 from deep_mcts.convolutionalnet import (
-    ConvolutionalBlock,
-    ResidualBlock,
-    PolicyHead,
-    ValueHead,
     ConvolutionalNet,
 )
 from deep_mcts.game import CellState, Player
-from deep_mcts.gamenet import DEVICE, GameNet
+from deep_mcts.gamenet import GameNet
 from deep_mcts.hex.game import HexAction, HexManager, HexState
 
 

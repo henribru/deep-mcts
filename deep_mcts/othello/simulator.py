@@ -1,8 +1,10 @@
+import os.path
+
+import pandas as pd
+
 from deep_mcts import train
 from deep_mcts.othello.convolutionalnet import ConvolutionalOthelloNet
 from deep_mcts.othello.game import OthelloManager
-import pandas as pd
-import os.path
 
 
 def othello_simulator(

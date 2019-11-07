@@ -1,21 +1,15 @@
 import random
-from typing import Tuple, Dict, Mapping, Sequence, TYPE_CHECKING
+from typing import Tuple, Dict, Mapping, Sequence
 
 import numpy as np
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim
 
 from deep_mcts.convolutionalnet import (
-    ConvolutionalBlock,
-    ResidualBlock,
-    PolicyHead,
-    ValueHead,
     ConvolutionalNet,
 )
 from deep_mcts.game import CellState
-from deep_mcts.gamenet import GameNet, DEVICE
+from deep_mcts.gamenet import GameNet
 from deep_mcts.tictactoe.game import TicTacToeAction, TicTacToeState, TicTacToeManager
 
 

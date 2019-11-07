@@ -1,13 +1,13 @@
 import random
-from abc import abstractmethod, ABC
-from typing import Callable, Dict, List, Tuple, Iterable, TypeVar, Generic, Optional
-from math import sqrt
-import numpy as np
 import typing
+from abc import ABC
+from math import sqrt
+from typing import Callable, Dict, List, Tuple, Iterable, TypeVar, Generic, Optional
+
+import numpy as np
 
 from deep_mcts.game import GameManager, State, Player
 from deep_mcts.tournament import Agent
-
 
 _S = TypeVar("_S", bound=State)
 _A = TypeVar("_A")
