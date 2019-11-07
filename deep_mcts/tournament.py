@@ -70,7 +70,7 @@ def compare_agents(
             elif result == Outcome.SECOND_PLAYER_WIN:
                 first_player_losses += 1
             else:
-                first_player_draws += Outcome.DRAW
+                first_player_draws += 1
         else:
             result = play((players[1], players[0]), game_manager)
             if result == Outcome.SECOND_PLAYER_WIN:
