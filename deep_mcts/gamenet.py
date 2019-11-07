@@ -55,7 +55,7 @@ class GameNet(ABC, Generic[_S, _A]):
 
     def __init__(self) -> None:
         self.policy_criterion = cross_entropy  # type: ignore[assignment, misc]
-        self.value_criterion = nn.MSELoss()  # type: ignore[assignment, misc]
+        self.value_criterion = nn.MSELoss()
         self.device = torch.device("cpu")
 
     def forward(self, state: _S) -> Tuple[float, torch.Tensor]:
@@ -133,9 +133,7 @@ class GameNet(ABC, Generic[_S, _A]):
         policy_loss = self.policy_criterion(  # type: ignore[misc, call-arg]
             probabilities, probability_targets
         )
-        value_loss = self.value_criterion(  # type: ignore[misc, call-arg]
-            values, value_targets
-        )
+        value_loss = self.value_criterion(values, value_targets)
         loss = policy_loss + value_loss
         assert loss.shape == ()
         self.optimizer.zero_grad()
