@@ -47,6 +47,7 @@ def train(
         device=torch.device("cuda:0"),
     )
     previous_game_net = game_net.copy()
+    previous_game_net.to(device)
     training_iterations = 0
     training_games_count = 0
     training_examples_count = 0
@@ -89,6 +90,7 @@ def train(
             )
             prev_evaluation_time = time.perf_counter()
             previous_game_net = game_net.copy()
+            previous_game_net.to(device)
             yield training_iterations, random_mcts_evaluation, previous_evaluation
 
         training_iterations += 1
