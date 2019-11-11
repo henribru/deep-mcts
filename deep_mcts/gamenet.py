@@ -1,12 +1,23 @@
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, Generic, Mapping, Sequence, Tuple, Type, TypeVar
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generic,
+    Mapping,
+    Sequence,
+    Tuple,
+    Type,
+    TypeVar,
+    TYPE_CHECKING,
+)
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim.optimizer
 
-from deep_mcts.game import Player, State
+from deep_mcts.game import Player, State, GameManager
 from deep_mcts.tournament import Agent
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -17,18 +28,39 @@ _S = TypeVar("_S", bound=State)
 _A = TypeVar("_A")
 _T = TypeVar("_T", bound="GameNet")  # type: ignore[type-arg]
 
+if TYPE_CHECKING:
+    TensorPairModule = nn.Module[Tuple[torch.Tensor, torch.Tensor]]
+else:
+    TensorPairModule = nn.Module
+
 
 class GameNet(ABC, Generic[_S, _A]):
-    net: "nn.Module[Tuple[torch.Tensor, torch.Tensor]]"
+    net: TensorPairModule
     policy_criterion: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
     value_criterion: nn.MSELoss
     optimizer: "torch.optim.optimizer.Optimizer"
     device: torch.device
+    manager: GameManager[_S, _A]
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        net: TensorPairModule,
+        manager: GameManager[_S, _A],
+        optimizer_cls: Type["torch.optim.optimizer.Optimizer"],
+        optimizer_args: Tuple[Any, ...],
+        optimizer_kwargs: Mapping[str, Any],
+    ) -> None:
         self.policy_criterion = cross_entropy  # type: ignore[assignment, misc]
         self.value_criterion = nn.MSELoss()
         self.device = torch.device("cpu")
+        self.net = net
+        self.manager = manager
+        self.optimizer_cls = optimizer_cls
+        self.optimizer_args = optimizer_args
+        self.optimizer_kwargs = optimizer_kwargs
+        self.optimizer = optimizer_cls(  # type: ignore[call-arg]
+            self.net.parameters(), *optimizer_args, **optimizer_kwargs
+        )
 
     def forward(self, state: _S) -> Tuple[float, torch.Tensor]:
         self.net.eval()
@@ -140,11 +172,14 @@ class GameNet(ABC, Generic[_S, _A]):
         self.device = device
         self.value_criterion.to(device)
         self.net.to(device)
+        self.optimizer = self.optimizer_cls(  # type: ignore[call-arg]
+            self.net.parameters(), *self.optimizer_args, **self.optimizer_kwargs
+        )
         return self
 
     @classmethod
     def from_path(cls: Type[_T], path: str, *args: Any, **kwargs: Any) -> _T:
-        anet = cls(*args, **kwargs)  # type: ignore[call-arg]
+        anet = cls(*args, **kwargs)
         anet.load(path)
         return anet
 

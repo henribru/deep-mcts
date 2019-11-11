@@ -17,7 +17,6 @@ _A = TypeVar("_A")
 
 def train(
     game_net: GameNet[_S, _A],
-    game_manager: GameManager[_S, _A],
     num_games: int,
     num_simulations: int,
     save_interval: int,
@@ -30,6 +29,7 @@ def train(
     replay_buffer_max_size: int = 100_000,
 ) -> Iterable[Tuple[int, AgentComparison, AgentComparison]]:
     print(f"{time.strftime('%H:%M:%S')} Starting")
+    game_manager = game_net.manager
     device = torch.device("cuda:1")
     game_net.to(device)
     replay_buffer = Deque[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]](
@@ -39,7 +39,6 @@ def train(
     multiprocessing.set_start_method("spawn")
     self_playing_context, games_queue = spawn_self_play_example_creators(
         game_net,
-        game_manager,
         num_games,
         num_simulations,
         rollout_policy,
@@ -97,7 +96,6 @@ def train(
 
 def spawn_self_play_example_creators(
     game_net: GameNet[_S, _A],
-    game_manager: GameManager[_S, _A],
     num_games: int,
     num_simulations: int,
     rollout_policy: Optional[Callable[[_S], _A]],
@@ -113,7 +111,6 @@ def spawn_self_play_example_creators(
         create_self_play_examples,
         (
             game_net,
-            game_manager,
             num_games,
             num_simulations,
             rollout_policy,
@@ -130,7 +127,6 @@ def spawn_self_play_example_creators(
 def create_self_play_examples(
     process_number: int,
     game_net: GameNet[_S, _A],
-    game_manager: GameManager[_S, _A],
     num_games: int,
     num_simulations: int,
     rollout_policy: Optional[Callable[[_S], _A]],
@@ -138,6 +134,7 @@ def create_self_play_examples(
     epsilon: float,
     device: Optional[torch.device],
 ) -> None:
+    game_manager = game_net.manager
     if device is not None:
         original_game_net = game_net
         game_net = game_net.copy()

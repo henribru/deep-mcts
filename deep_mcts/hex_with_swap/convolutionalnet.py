@@ -1,7 +1,8 @@
-from typing import Tuple, Dict, Mapping, Sequence
+from typing import Tuple, Dict, Mapping, Sequence, Type, Any, Optional
 
 import torch
 import torch.optim
+import torch.optim.optimizer
 
 from deep_mcts.convolutionalnet import ConvolutionalNet
 from deep_mcts.game import CellState, Player
@@ -17,21 +18,32 @@ from deep_mcts.hex_with_swap.game import (
 
 class ConvolutionalHexWithSwapNet(GameNet[HexState, HexWithSwapAction]):
     grid_size: int
-    hex_manager: HexWithSwapManager
 
-    def __init__(self, grid_size: int) -> None:
-        super().__init__()
-        self.net = ConvolutionalNet(
-            num_residual=1,
-            grid_size=grid_size,
-            in_channels=3,
-            channels=128,
-            policy_features=grid_size ** 2 + 1,
-            policy_shape=(grid_size ** 2 + 1,),
+    def __init__(
+        self,
+        grid_size: int,
+        manager: Optional[HexWithSwapManager] = None,
+        optimizer_cls: Type["torch.optim.optimizer.Optimizer"] = torch.optim.SGD,
+        optimizer_args: Tuple[Any, ...] = (),
+        optimizer_kwargs: Mapping[str, Any] = {"lr": 0.01, "momentum": 0.9},
+        num_residual: int = 1,
+        channels: int = 128,
+    ) -> None:
+        super().__init__(
+            ConvolutionalNet(
+                num_residual=num_residual,
+                grid_size=grid_size,
+                in_channels=3,
+                channels=channels,
+                policy_features=grid_size ** 2 + 1,
+                policy_shape=(grid_size ** 2 + 1,),
+            ),
+            manager if manager is not None else HexWithSwapManager(grid_size),
+            optimizer_cls,
+            optimizer_args,
+            optimizer_kwargs,
         )
         self.grid_size = grid_size
-        self.hex_manager = HexWithSwapManager(grid_size)
-        self.optimizer = torch.optim.SGD(self.net.parameters(), lr=0.01, momentum=0.9)
 
     def _mask_illegal_moves(
         self, states: Sequence[HexState], output: torch.Tensor
@@ -47,7 +59,7 @@ class ConvolutionalHexWithSwapNet(GameNet[HexState, HexWithSwapAction]):
         ).reshape((len(states), -1))
         legal_moves = (states == CellState.EMPTY).float()
         swaps = torch.tensor(
-            [[HexSwap() in self.hex_manager.legal_actions(state)] for state in states_],
+            [[HexSwap() in self.manager.legal_actions(state)] for state in states_],
             dtype=torch.float32,
         )
         legal_moves = torch.cat([legal_moves, swaps], 1).to(self.device)
@@ -84,12 +96,13 @@ class ConvolutionalHexWithSwapNet(GameNet[HexState, HexWithSwapAction]):
             for x in range(self.grid_size)
         }
         actions[HexSwap()] = probabilities[0, -1].item()
-        legal_actions = set(self.hex_manager.legal_actions(state))
-        assert all(
-            action in legal_actions
-            for action, probability in actions.items()
-            if probability != 0
-        )
+        if __debug__:
+            legal_actions = set(self.manager.legal_actions(state))
+            assert all(
+                action in legal_actions
+                for action, probability in actions.items()
+                if probability != 0
+            )
         return value, actions
 
     def state_to_tensor(self, state: HexState) -> torch.Tensor:

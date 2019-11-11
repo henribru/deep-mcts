@@ -1,9 +1,10 @@
 import random
-from typing import Tuple, Dict, Mapping, Sequence
+from typing import Tuple, Dict, Mapping, Sequence, Type, Any, Optional
 
 import numpy as np
 import torch
 import torch.optim
+import torch.optim.optimizer
 
 from deep_mcts.convolutionalnet import ConvolutionalNet
 from deep_mcts.game import CellState
@@ -12,20 +13,29 @@ from deep_mcts.tictactoe.game import TicTacToeAction, TicTacToeState, TicTacToeM
 
 
 class ConvolutionalTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
-    manager: TicTacToeManager
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.net = ConvolutionalNet(
-            num_residual=3,
-            grid_size=3,
-            in_channels=3,
-            channels=16,
-            policy_features=9,
-            policy_shape=(3, 3),
+    def __init__(
+        self,
+        manager: Optional[TicTacToeManager] = None,
+        optimizer_cls: Type["torch.optim.optimizer.Optimizer"] = torch.optim.SGD,
+        optimizer_args: Tuple[Any, ...] = (),
+        optimizer_kwargs: Mapping[str, Any] = {"lr": 0.01, "momentum": 0.9},
+        num_residual: int = 3,
+        channels: int = 3,
+    ) -> None:
+        super().__init__(
+            ConvolutionalNet(
+                num_residual=num_residual,
+                grid_size=3,
+                in_channels=3,
+                channels=channels,
+                policy_features=9,
+                policy_shape=(3, 3),
+            ),
+            manager if manager is not None else TicTacToeManager(),
+            optimizer_cls,
+            optimizer_args,
+            optimizer_kwargs,
         )
-        self.manager = TicTacToeManager()
-        self.optimizer = torch.optim.SGD(self.net.parameters(), lr=0.01, momentum=0.9)
 
     def _mask_illegal_moves(
         self, states: Sequence[TicTacToeState], output: torch.Tensor
@@ -76,12 +86,13 @@ class ConvolutionalTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
             for y in range(3)
             for x in range(3)
         }
-        legal_actions = set(self.manager.legal_actions(state))
-        assert all(
-            action in legal_actions
-            for action, probability in actions.items()
-            if probability != 0
-        )
+        if __debug__:
+            legal_actions = set(self.manager.legal_actions(state))
+            assert all(
+                action in legal_actions
+                for action, probability in actions.items()
+                if probability != 0
+            )
         return value, actions
 
     def state_to_tensor(self, state: TicTacToeState) -> torch.Tensor:

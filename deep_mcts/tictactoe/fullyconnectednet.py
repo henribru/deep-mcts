@@ -1,11 +1,12 @@
 import random
-from typing import Tuple, Dict, Sequence, Mapping, TYPE_CHECKING
+from typing import Tuple, Dict, Sequence, Mapping, TYPE_CHECKING, Type, Any, Optional
 
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim
+import torch.optim.optimizer
 
 from deep_mcts.game import Player
 from deep_mcts.gamenet import GameNet
@@ -44,13 +45,21 @@ class FullyConnectedTicTacToeModule(TensorPairModule):
 
 class FullyConnectedTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
     grid_size: int
-    manager: TicTacToeManager
 
-    def __init__(self) -> None:
-        super().__init__()
-        self.net = FullyConnectedTicTacToeModule()
-        self.manager = TicTacToeManager()
-        self.optimizer = torch.optim.SGD(self.net.parameters(), lr=0.01, momentum=0.9)
+    def __init__(
+        self,
+        manager: Optional[TicTacToeManager] = None,
+        optimizer_cls: Type["torch.optim.optimizer.Optimizer"] = torch.optim.SGD,
+        optimizer_args: Tuple[Any, ...] = (),
+        optimizer_kwargs: Mapping[str, Any] = {"lr": 0.01, "momentum": 0.9},
+    ) -> None:
+        super().__init__(
+            FullyConnectedTicTacToeModule(),
+            manager if manager is not None else TicTacToeManager(),
+            optimizer_cls,
+            optimizer_args,
+            optimizer_kwargs,
+        )
 
     def _mask_illegal_moves(
         self, states: Sequence[TicTacToeState], output: torch.Tensor

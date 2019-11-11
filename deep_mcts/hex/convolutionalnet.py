@@ -1,9 +1,10 @@
 import random
-from typing import Dict, Mapping, Sequence, Tuple
+from typing import Dict, Mapping, Sequence, Tuple, Type, Any, Optional
 
 import numpy as np
 import torch
 import torch.optim
+import torch.optim.optimizer
 
 from deep_mcts.convolutionalnet import ConvolutionalNet
 from deep_mcts.game import CellState, Player
@@ -13,21 +14,32 @@ from deep_mcts.hex.game import HexAction, HexManager, HexState
 
 class ConvolutionalHexNet(GameNet[HexState, HexAction]):
     grid_size: int
-    hex_manager: HexManager
 
-    def __init__(self, grid_size: int) -> None:
-        super().__init__()
-        self.net = ConvolutionalNet(
-            num_residual=1,
-            grid_size=grid_size,
-            in_channels=3,
-            channels=128,
-            policy_features=grid_size ** 2,
-            policy_shape=(grid_size, grid_size),
+    def __init__(
+        self,
+        grid_size: int,
+        manager: Optional[HexManager] = None,
+        optimizer_cls: Type["torch.optim.optimizer.Optimizer"] = torch.optim.SGD,
+        optimizer_args: Tuple[Any, ...] = (),
+        optimizer_kwargs: Mapping[str, Any] = {"lr": 0.01, "momentum": 0.9},
+        num_residual: int = 1,
+        channels: int = 128,
+    ) -> None:
+        super().__init__(
+            ConvolutionalNet(
+                num_residual=num_residual,
+                grid_size=grid_size,
+                in_channels=3,
+                channels=channels,
+                policy_features=grid_size ** 2,
+                policy_shape=(grid_size, grid_size),
+            ),
+            manager if manager is not None else HexManager(grid_size),
+            optimizer_cls,
+            optimizer_args,
+            optimizer_kwargs,
         )
         self.grid_size = grid_size
-        self.hex_manager = HexManager(grid_size)
-        self.optimizer = torch.optim.SGD(self.net.parameters(), lr=0.01, momentum=0.9)
 
     def _mask_illegal_moves(
         self, states: Sequence[HexState], output: torch.Tensor
@@ -62,14 +74,14 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
         action = np.random.choice(self.grid_size ** 2, p=action_probabilities.flatten())
         y, x = np.unravel_index(action, action_probabilities.shape)
         action = HexAction((x, y))
-        assert action in self.hex_manager.legal_actions(state)
+        assert action in self.manager.legal_actions(state)
         return action
 
     def greedy_policy(self, state: HexState, epsilon: float = 0) -> HexAction:
         if epsilon > 0:
             p = random.random()
             if p < epsilon:
-                return random.choice(self.hex_manager.legal_actions(state))
+                return random.choice(self.manager.legal_actions(state))
         _, action_probabilities = self.forward(state)
         action_probabilities = action_probabilities[0, :, :]
         assert action_probabilities.shape == (self.grid_size, self.grid_size)
@@ -77,7 +89,7 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
             torch.argmax(action_probabilities), action_probabilities.shape
         )
         action = HexAction((x, y))
-        assert action in self.hex_manager.legal_actions(state)
+        assert action in self.manager.legal_actions(state)
         return action
 
     def evaluate_state(self, state: HexState) -> Tuple[float, Dict[HexAction, float]]:
@@ -87,12 +99,13 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
             for y in range(self.grid_size)
             for x in range(self.grid_size)
         }
-        legal_actions = set(self.hex_manager.legal_actions(state))
-        assert all(
-            action in legal_actions
-            for action, probability in actions.items()
-            if probability != 0
-        )
+        if __debug__:
+            legal_actions = set(self.manager.legal_actions(state))
+            assert all(
+                action in legal_actions
+                for action, probability in actions.items()
+                if probability != 0
+            )
         return value, actions
 
     def state_to_tensor(self, state: HexState) -> torch.Tensor:
@@ -150,7 +163,7 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
         assert targets.shape == (len(distributions), self.grid_size, self.grid_size)
         return targets
 
-    def copy(self: "ConvolutionalHexNet") -> "ConvolutionalHexNet":
+    def copy(self) -> "ConvolutionalHexNet":
         net = ConvolutionalHexNet(self.grid_size)
         net.net.load_state_dict(self.net.state_dict())
         return net

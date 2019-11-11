@@ -15,14 +15,13 @@ def othello_simulator(
     evaluation_interval: int,
 ) -> None:
     manager = OthelloManager(grid_size)
-    anet = ConvolutionalOthelloNet(grid_size)
+    anet = ConvolutionalOthelloNet(grid_size, manager)
     save_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), "saves")
     evaluations = pd.DataFrame.from_dict(
         {
             i: (random_evaluation, previous_evaluation)
             for i, random_evaluation, previous_evaluation in train.train(
                 anet,
-                manager,
                 num_games,
                 num_simulations,
                 save_interval,
