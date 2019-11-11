@@ -7,18 +7,20 @@ import torch.optim
 import torch.optim.optimizer
 
 from deep_mcts.convolutionalnet import ConvolutionalNet
-from deep_mcts.game import CellState, Player
+from deep_mcts.game import CellState, Player, GameManager
 from deep_mcts.gamenet import GameNet
 from deep_mcts.hex.game import HexAction, HexManager, HexState
 
 
 class ConvolutionalHexNet(GameNet[HexState, HexAction]):
     grid_size: int
+    num_residual: int
+    channels: int
 
     def __init__(
         self,
         grid_size: int,
-        manager: Optional[HexManager] = None,
+        manager: Optional[GameManager[HexState, HexAction]] = None,
         optimizer_cls: Type["torch.optim.optimizer.Optimizer"] = torch.optim.SGD,
         optimizer_args: Tuple[Any, ...] = (),
         optimizer_kwargs: Mapping[str, Any] = {"lr": 0.01, "momentum": 0.9},
@@ -40,6 +42,8 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
             optimizer_kwargs,
         )
         self.grid_size = grid_size
+        self.num_residual = num_residual
+        self.channels = channels
 
     def _mask_illegal_moves(
         self, states: Sequence[HexState], output: torch.Tensor
@@ -164,6 +168,14 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
         return targets
 
     def copy(self) -> "ConvolutionalHexNet":
-        net = ConvolutionalHexNet(self.grid_size)
+        net = ConvolutionalHexNet(
+            self.grid_size,
+            self.manager,
+            self.optimizer_cls,
+            self.optimizer_args,
+            self.optimizer_kwargs,
+            self.num_residual,
+            self.channels,
+        )
         net.net.load_state_dict(self.net.state_dict())
         return net

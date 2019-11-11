@@ -8,7 +8,7 @@ import torch.nn.functional as F
 import torch.optim
 import torch.optim.optimizer
 
-from deep_mcts.game import Player
+from deep_mcts.game import Player, GameManager
 from deep_mcts.gamenet import GameNet
 from deep_mcts.tictactoe.game import (
     TicTacToeState,
@@ -48,7 +48,7 @@ class FullyConnectedTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
 
     def __init__(
         self,
-        manager: Optional[TicTacToeManager] = None,
+        manager: Optional[GameManager[TicTacToeState, TicTacToeAction]] = None,
         optimizer_cls: Type["torch.optim.optimizer.Optimizer"] = torch.optim.SGD,
         optimizer_args: Tuple[Any, ...] = (),
         optimizer_kwargs: Mapping[str, Any] = {"lr": 0.01, "momentum": 0.9},
@@ -172,6 +172,8 @@ class FullyConnectedTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
         return targets
 
     def copy(self) -> "FullyConnectedTicTacToeNet":
-        net = FullyConnectedTicTacToeNet()
+        net = FullyConnectedTicTacToeNet(
+            self.manager, self.optimizer_cls, self.optimizer_args, self.optimizer_kwargs
+        )
         net.net.load_state_dict(self.net.state_dict())
         return net

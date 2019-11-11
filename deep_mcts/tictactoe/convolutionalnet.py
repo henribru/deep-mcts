@@ -7,15 +7,18 @@ import torch.optim
 import torch.optim.optimizer
 
 from deep_mcts.convolutionalnet import ConvolutionalNet
-from deep_mcts.game import CellState
+from deep_mcts.game import CellState, GameManager
 from deep_mcts.gamenet import GameNet
 from deep_mcts.tictactoe.game import TicTacToeAction, TicTacToeState, TicTacToeManager
 
 
 class ConvolutionalTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
+    num_residual: int
+    channels: int
+
     def __init__(
         self,
-        manager: Optional[TicTacToeManager] = None,
+        manager: Optional[GameManager[TicTacToeState, TicTacToeAction]] = None,
         optimizer_cls: Type["torch.optim.optimizer.Optimizer"] = torch.optim.SGD,
         optimizer_args: Tuple[Any, ...] = (),
         optimizer_kwargs: Mapping[str, Any] = {"lr": 0.01, "momentum": 0.9},
@@ -36,6 +39,8 @@ class ConvolutionalTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
             optimizer_args,
             optimizer_kwargs,
         )
+        self.num_residual = num_residual
+        self.channels = channels
 
     def _mask_illegal_moves(
         self, states: Sequence[TicTacToeState], output: torch.Tensor
@@ -133,6 +138,13 @@ class ConvolutionalTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
         return targets
 
     def copy(self) -> "ConvolutionalTicTacToeNet":
-        net = ConvolutionalTicTacToeNet()
+        net = ConvolutionalTicTacToeNet(
+            self.manager,
+            self.optimizer_cls,
+            self.optimizer_args,
+            self.optimizer_kwargs,
+            self.num_residual,
+            self.channels,
+        )
         net.net.load_state_dict(self.net.state_dict())
         return net

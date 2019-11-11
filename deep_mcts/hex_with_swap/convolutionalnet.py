@@ -5,7 +5,7 @@ import torch.optim
 import torch.optim.optimizer
 
 from deep_mcts.convolutionalnet import ConvolutionalNet
-from deep_mcts.game import CellState, Player
+from deep_mcts.game import CellState, Player, GameManager
 from deep_mcts.gamenet import GameNet
 from deep_mcts.hex_with_swap.game import (
     HexWithSwapManager,
@@ -18,11 +18,13 @@ from deep_mcts.hex_with_swap.game import (
 
 class ConvolutionalHexWithSwapNet(GameNet[HexState, HexWithSwapAction]):
     grid_size: int
+    num_residual: int
+    channels: int
 
     def __init__(
         self,
         grid_size: int,
-        manager: Optional[HexWithSwapManager] = None,
+        manager: Optional[GameManager[HexState, HexWithSwapAction]] = None,
         optimizer_cls: Type["torch.optim.optimizer.Optimizer"] = torch.optim.SGD,
         optimizer_args: Tuple[Any, ...] = (),
         optimizer_kwargs: Mapping[str, Any] = {"lr": 0.01, "momentum": 0.9},
@@ -44,6 +46,8 @@ class ConvolutionalHexWithSwapNet(GameNet[HexState, HexWithSwapAction]):
             optimizer_kwargs,
         )
         self.grid_size = grid_size
+        self.num_residual = num_residual
+        self.channels = channels
 
     def _mask_illegal_moves(
         self, states: Sequence[HexState], output: torch.Tensor
@@ -172,6 +176,14 @@ class ConvolutionalHexWithSwapNet(GameNet[HexState, HexWithSwapAction]):
         return targets
 
     def copy(self) -> "ConvolutionalHexWithSwapNet":
-        net = ConvolutionalHexWithSwapNet(self.grid_size)
+        net = ConvolutionalHexWithSwapNet(
+            self.grid_size,
+            self.manager,
+            self.optimizer_cls,
+            self.optimizer_args,
+            self.optimizer_kwargs,
+            self.num_residual,
+            self.channels,
+        )
         net.net.load_state_dict(self.net.state_dict())
         return net
