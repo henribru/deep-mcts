@@ -89,8 +89,7 @@ def train(
                 f"previous: {previous_evaluation} random MCTS: {random_mcts_evaluation} "
             )
             prev_evaluation_time = time.perf_counter()
-            previous_game_net = game_net.copy()
-            previous_game_net.to(device)
+            previous_game_net.net.load_state_dict(game_net.net.state_dict())
             yield training_iterations, random_mcts_evaluation, previous_evaluation
 
         training_iterations += 1
