@@ -277,11 +277,10 @@ def get_new_games(
 def sample_replay_buffer(
     replay_buffer: List[TensorSelfPlayGame], batch_size: int, device: torch.device
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    game_length_sum = sum(len(game) for game in replay_buffer)
-    games = np.random.choice(
+    games = random.choices(
         replay_buffer,
-        batch_size,
-        p=[len(game) / game_length_sum for game in replay_buffer],
+        weights=[len(game) for game in replay_buffer],
+        k=batch_size
     )
     examples = [random.choice(game) for game in games]
     states, probability_targets, value_targets = zip(*examples)
