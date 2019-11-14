@@ -83,7 +83,10 @@ class HexManager(GameManager[HexState, HexAction]):
             if state.grid[y][x] == CellState.EMPTY
         ]
 
-    def is_final_state(self, state: HexState) -> bool:
+    @lru_cache(maxsize=2 ** 20)
+    def is_final_state(  # type: ignore[override]
+        self, state: HexState
+    ) -> bool:
         return self.evaluate_final_state(state) != Outcome.DRAW
 
     @lru_cache(maxsize=2 ** 20)

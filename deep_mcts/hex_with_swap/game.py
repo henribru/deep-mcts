@@ -26,10 +26,16 @@ class HexWithSwapManager(GameManager[HexState, HexWithSwapAction]):
     def initial_game_state(self) -> HexState:
         return self.manager.initial_game_state()
 
-    def evaluate_final_state(self, state: HexState) -> int:
+    @lru_cache(maxsize=2 ** 20)
+    def evaluate_final_state(  # type: ignore[override]
+        self, state: HexState
+    ) -> int:
         return self.manager.evaluate_final_state(state)
 
-    def is_final_state(self, state: HexState) -> bool:
+    @lru_cache(maxsize=2 ** 20)
+    def is_final_state(  # type: ignore[override]
+        self, state: HexState
+    ) -> bool:
         return self.manager.is_final_state(state)
 
     @lru_cache(maxsize=2 ** 20)
