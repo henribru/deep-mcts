@@ -1,9 +1,10 @@
 import queue
 import random
 import time
-from typing import Iterable, Tuple, Optional, TypeVar, Callable, Deque, Dict, List
+from typing import Iterable, Tuple, Optional, TypeVar, Callable, Dict, List
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import torch
 from torch import multiprocessing
@@ -15,7 +16,10 @@ from deep_mcts.tournament import compare_agents, AgentComparison
 
 _S = TypeVar("_S", bound=State)
 _A = TypeVar("_A")
-
+SelfPlayExample = Tuple[_S, Dict[_A, float], float]
+SelfPlayGame = List[SelfPlayExample[_S, _A]]
+TensorSelfPlayExample = Tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+TensorSelfPlayGame = List[TensorSelfPlayExample]
 
 # def train_from_checkpoint(anet: GameNet[_S, _A], path: str) -> None:
 #     save_dir = Path(path).resolve().parent
@@ -39,6 +43,8 @@ def train(
     nprocs: int = 25,
     batch_size: int = 512,
     replay_buffer_max_size: int = 100_000,
+    train_device: torch.device = torch.device("cuda:1"),
+    self_play_device: torch.device = torch.device("cuda:0"),
 ) -> None:
     evaluations = pd.DataFrame.from_dict(
         {
@@ -56,6 +62,8 @@ def train(
                 nprocs,
                 batch_size,
                 replay_buffer_max_size,
+                train_device,
+                self_play_device,
             )
         },
         orient="index",
@@ -77,14 +85,13 @@ def _train(
     nprocs: int,
     batch_size: int,
     replay_buffer_max_size: int,
+    train_device: torch.device,
+    self_play_device: torch.device,
 ) -> Iterable[Tuple[int, AgentComparison, AgentComparison]]:
     print(f"{time.strftime('%H:%M:%S')} Starting")
     game_manager = game_net.manager
-    device = torch.device("cuda:1")
-    game_net.to(device)
-    replay_buffer = Deque[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]](
-        [], replay_buffer_max_size
-    )
+    game_net.to(train_device)
+    replay_buffer: List[TensorSelfPlayGame] = []
     game_net.save(f"{save_dir}/anet-0.pth")
     multiprocessing.set_start_method("spawn")
     self_playing_context, games_queue = spawn_self_play_example_creators(
@@ -94,23 +101,25 @@ def _train(
         rollout_policy,
         sample_move_cutoff,
         nprocs,
-        device=torch.device("cuda:0"),
+        self_play_device,
     )
     previous_game_net = game_net.copy()
-    previous_game_net.to(device)
+    previous_game_net.to(train_device)
     training_iterations = 0
     training_games_count = 0
     training_examples_count = 0
     prev_evaluation_time = time.perf_counter()
     while not self_playing_context.join(0):
-        new_games_count, new_examples = get_new_examples(
+        new_games = get_new_games(
             games_queue, self_playing_context, game_net, block=len(replay_buffer) == 0
         )
-        training_games_count += new_games_count
-        training_examples_count += len(new_examples)
-        replay_buffer.extend(new_examples)
+        training_games_count += len(new_games)
+        training_examples_count += sum(len(game) for game in new_games)
+        if len(replay_buffer) > replay_buffer_max_size:
+            replay_buffer = replay_buffer[:-replay_buffer_max_size]
+        replay_buffer.extend(new_games)
         states, probability_targets, value_targets = sample_replay_buffer(
-            replay_buffer, batch_size, device
+            replay_buffer, batch_size, train_device
         )
         game_net.train(states, probability_targets, value_targets)
 
@@ -153,11 +162,8 @@ def spawn_self_play_example_creators(
     sample_move_cutoff: int,
     nprocs: int,
     device: Optional[torch.device] = None,
-) -> Tuple[
-    multiprocessing.SpawnContext,
-    "multiprocessing.Queue[List[Tuple[_S, Dict[_A, float], float]]]",
-]:
-    games_queue: "multiprocessing.Queue[List[Tuple[_S, Dict[_A, float], float]]]" = multiprocessing.Queue()
+) -> Tuple[multiprocessing.SpawnContext, "multiprocessing.Queue[SelfPlayGame[_S, _A]]"]:
+    games_queue: "multiprocessing.Queue[SelfPlayGame[_S, _A]]" = multiprocessing.Queue()
     context = multiprocessing.spawn(
         create_self_play_examples,
         (
@@ -181,7 +187,7 @@ def create_self_play_examples(
     num_games: int,
     num_simulations: int,
     rollout_policy: Optional[Callable[[_S], _A]],
-    games_queue: "multiprocessing.Queue[List[Tuple[_S, Dict[_A, float], float]]]",
+    games_queue: "multiprocessing.Queue[SelfPlayGame[_S, _A]]",
     sample_move_cutoff: int,
     device: Optional[torch.device],
 ) -> None:
@@ -229,26 +235,27 @@ def create_self_play_examples(
                 print(f"{method}: {hit_ratio * 100:.1f}%")
 
 
-def get_new_examples(
-    games_queue: "multiprocessing.Queue[List[Tuple[_S, Dict[_A, float], float]]]",
+def get_new_games(
+    games_queue: "multiprocessing.Queue[SelfPlayGame[_S, _A]]",
     self_playing_context: multiprocessing.SpawnContext,
     game_net: GameNet[_S, _A],
     block: bool = False,
-) -> Tuple[int, List[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]]:
+) -> List[List[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]]:
     new_examples: List[Tuple[_S, Dict[_A, float], float]] = []
-    games_count = 0
+    game_lengths = []
     while True:
         block = block and not new_examples
         try:
-            examples = games_queue.get(block, timeout=1)
-            games_count += 1
-            new_examples.extend(examples)
+            game = games_queue.get(block, timeout=1)
+            game_lengths.append(len(game))
+            new_examples.extend(game)
         except queue.Empty:
             if block and not self_playing_context.join(0):
                 continue
             break
     if not new_examples:
-        return 0, []
+        return []
+
     states, probability_targets, value_targets = zip(*new_examples)
     value_targets = torch.tensor(value_targets, dtype=torch.float32).reshape((-1, 1))
     assert value_targets.shape[0] == len(new_examples)
@@ -256,15 +263,26 @@ def get_new_examples(
     assert probability_targets.shape[0] == len(new_examples)
     states = game_net.states_to_tensor(states)
     assert states.shape[0] == len(new_examples)
-    return games_count, list(zip(states, probability_targets, value_targets))
+    new_games = []
+    i = 0
+    for game_length in game_lengths:
+        new_games.append(
+            list(zip(states[i:], probability_targets[i:], value_targets[i:]))
+        )
+        i += game_length
+    return new_games
 
 
 def sample_replay_buffer(
-    replay_buffer: Deque[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]],
-    batch_size: int,
-    device: torch.device,
+    replay_buffer: List[TensorSelfPlayGame], batch_size: int, device: torch.device
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    examples = random.sample(replay_buffer, min(batch_size, len(replay_buffer)))
+    game_length_sum = sum(len(game) for game in replay_buffer)
+    games = np.random.choice(
+        replay_buffer,
+        batch_size,
+        p=[len(game) / game_length_sum for game in replay_buffer],
+    )
+    examples = [random.choice(game) for game in games]
     states, probability_targets, value_targets = zip(*examples)
     states = torch.stack(states).to(device)
     probability_targets = torch.stack(probability_targets).to(device)
