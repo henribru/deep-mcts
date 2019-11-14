@@ -51,7 +51,11 @@ class FullyConnectedTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
         manager: Optional[GameManager[TicTacToeState, TicTacToeAction]] = None,
         optimizer_cls: Type["torch.optim.optimizer.Optimizer"] = torch.optim.SGD,
         optimizer_args: Tuple[Any, ...] = (),
-        optimizer_kwargs: Mapping[str, Any] = {"lr": 0.01, "momentum": 0.9},
+        optimizer_kwargs: Mapping[str, Any] = {
+            "lr": 0.01,
+            "momentum": 0.9,
+            "weight_decay": 0.001,
+        },
     ) -> None:
         super().__init__(
             FullyConnectedTicTacToeModule(),

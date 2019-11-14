@@ -27,7 +27,11 @@ class ConvolutionalOthelloNet(GameNet[OthelloState, OthelloAction]):
         manager: Optional[GameManager[OthelloState, OthelloAction]] = None,
         optimizer_cls: Type["torch.optim.optimizer.Optimizer"] = torch.optim.SGD,
         optimizer_args: Tuple[Any, ...] = (),
-        optimizer_kwargs: Mapping[str, Any] = {"lr": 0.01, "momentum": 0.9},
+        optimizer_kwargs: Mapping[str, Any] = {
+            "lr": 0.01,
+            "momentum": 0.9,
+            "weight_decay": 0.001,
+        },
         num_residual: int = 1,
         channels: int = 128,
     ) -> None:
