@@ -2,6 +2,7 @@ import queue
 import random
 import time
 from typing import Iterable, Tuple, Optional, TypeVar, Callable, Deque, Dict, List
+from pathlib import Path
 
 import pandas as pd
 import torch
@@ -16,6 +17,15 @@ _S = TypeVar("_S", bound=State)
 _A = TypeVar("_A")
 
 
+# def train_from_checkpoint(anet: GameNet[_S, _A], path: str) -> None:
+#     save_dir = Path(path).resolve().parent
+#     checkpoint = torch.load(path)
+#     anet.net.load_state_dict(checkpoint["model_state_dict"])
+#     replay_buffer = checkpoint["replay_buffer"]
+#     anet.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+#     training_iterations = checkpoint["training_iterations"]
+
+
 def train(
     game_net: GameNet[_S, _A],
     num_games: int,
@@ -23,6 +33,7 @@ def train(
     save_interval: int,
     evaluation_interval: int,
     save_dir: str,
+    sample_move_cutoff: int,
     rollout_policy: Optional[Callable[[_S], _A]] = None,
     epsilon: float = 0.05,
     nprocs: int = 25,
@@ -39,6 +50,7 @@ def train(
                 save_interval,
                 evaluation_interval,
                 save_dir,
+                sample_move_cutoff,
                 rollout_policy,
                 epsilon,
                 nprocs,
@@ -59,6 +71,7 @@ def _train(
     save_interval: int,
     evaluation_interval: int,
     save_dir: str,
+    sample_move_cutoff: int,
     rollout_policy: Optional[Callable[[_S], _A]],
     epsilon: float,
     nprocs: int,
@@ -79,7 +92,7 @@ def _train(
         num_games,
         num_simulations,
         rollout_policy,
-        epsilon,
+        sample_move_cutoff,
         nprocs,
         device=torch.device("cuda:0"),
     )
@@ -137,7 +150,7 @@ def spawn_self_play_example_creators(
     num_games: int,
     num_simulations: int,
     rollout_policy: Optional[Callable[[_S], _A]],
-    epsilon: float,
+    sample_move_cutoff: int,
     nprocs: int,
     device: Optional[torch.device] = None,
 ) -> Tuple[
@@ -153,7 +166,7 @@ def spawn_self_play_example_creators(
             num_simulations,
             rollout_policy,
             games_queue,
-            epsilon,
+            sample_move_cutoff,
             device,
         ),
         nprocs=nprocs,
@@ -169,7 +182,7 @@ def create_self_play_examples(
     num_simulations: int,
     rollout_policy: Optional[Callable[[_S], _A]],
     games_queue: "multiprocessing.Queue[List[Tuple[_S, Dict[_A, float], float]]]",
-    epsilon: float,
+    sample_move_cutoff: int,
     device: Optional[torch.device],
 ) -> None:
     game_manager = game_net.manager
@@ -183,7 +196,7 @@ def create_self_play_examples(
             num_simulations,
             rollout_policy,
             state_evaluator=game_net.evaluate_state,
-            epsilon=epsilon,
+            sample_move_cutoff=sample_move_cutoff,
         )
         examples = []
         for state, next_state, action, visit_distribution in mcts.self_play():
@@ -298,8 +311,8 @@ def evaluate(
                     num_simulations,
                     rollout_policy,
                     state_evaluator=game_net.evaluate_state,
-                    epsilon=epsilon,
-                )
+                ),
+                epsilon,
             ),
             MCTSAgent(
                 MCTS(
@@ -307,8 +320,8 @@ def evaluate(
                     num_simulations,
                     rollout_policy,
                     state_evaluator=previous_game_net.evaluate_state,
-                    epsilon=epsilon,
-                )
+                ),
+                epsilon,
             ),
         ),
         games,

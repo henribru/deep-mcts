@@ -20,4 +20,5 @@ if __name__ == "__main__":
         save_interval=10_000,
         evaluation_interval=10_000,
         save_dir=str(save_dir),
+        sample_move_cutoff=3,
     )
