@@ -3,6 +3,7 @@ import random
 import time
 from typing import Iterable, Tuple, Optional, TypeVar, Callable, Deque, Dict, List
 
+import pandas as pd
 import torch
 from torch import multiprocessing
 
@@ -27,6 +28,42 @@ def train(
     nprocs: int = 25,
     batch_size: int = 512,
     replay_buffer_max_size: int = 100_000,
+) -> None:
+    evaluations = pd.DataFrame.from_dict(
+        {
+            i: (random_evaluation, previous_evaluation)
+            for i, random_evaluation, previous_evaluation in _train(
+                game_net,
+                num_games,
+                num_simulations,
+                save_interval,
+                evaluation_interval,
+                save_dir,
+                rollout_policy,
+                epsilon,
+                nprocs,
+                batch_size,
+                replay_buffer_max_size,
+            )
+        },
+        orient="index",
+        columns=["against_random", "against_previous"],
+    )
+    evaluations.to_csv(f"{save_dir}/evaluations.csv")
+
+
+def _train(
+    game_net: GameNet[_S, _A],
+    num_games: int,
+    num_simulations: int,
+    save_interval: int,
+    evaluation_interval: int,
+    save_dir: str,
+    rollout_policy: Optional[Callable[[_S], _A]],
+    epsilon: float,
+    nprocs: int,
+    batch_size: int,
+    replay_buffer_max_size: int,
 ) -> Iterable[Tuple[int, AgentComparison, AgentComparison]]:
     print(f"{time.strftime('%H:%M:%S')} Starting")
     game_manager = game_net.manager
