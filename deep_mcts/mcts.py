@@ -160,6 +160,7 @@ class MCTSAgent(Agent[_S, _A], ABC):
 
     def __init__(self, mcts: MCTS[_S, _A], epsilon: float = 0.0) -> None:
         self.mcts = mcts
+        self.epsilon = epsilon
 
     def play(self, state: _S) -> _A:
         if not any(child.state == state for child in self.mcts.root.children.values()):
