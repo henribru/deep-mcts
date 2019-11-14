@@ -75,17 +75,27 @@ class TicTacToeManager(GameManager[TicTacToeState, TicTacToeAction]):
     def evaluate_final_state(  # type: ignore[override]
         self, state: TicTacToeState
     ) -> int:
+        def rows_filled(player: CellState) -> bool:
+            return any(all(p == player for p in state.grid[y]) for y in range(3))
+
+        def columns_filled(player: CellState) -> bool:
+            return any(
+                all(state.grid[y][x] == player for y in range(3)) for x in range(3)
+            )
+
+        def diagonals_filled(player: CellState) -> bool:
+            return all(state.grid[i][i] == player for i in range(3)) or all(
+                state.grid[i][2 - i] == player for i in range(3)
+            )
+
         for player, outcome in [
             (CellState.SECOND_PLAYER, Outcome.SECOND_PLAYER_WIN),
             (CellState.FIRST_PLAYER, Outcome.FIRST_PLAYER_WIN),
         ]:
             if (
-                any(all(p == player for p in state.grid[y]) for y in range(3))
-                or any(
-                    all(state.grid[y][x] == player for y in range(3)) for x in range(3)
-                )
-                or all(state.grid[i][i] == player for i in range(3))
-                or all(state.grid[i][2 - i] == player for i in range(3))
+                rows_filled(player)
+                or columns_filled(player)
+                or diagonals_filled(player)
             ):
                 return outcome
         return Outcome.DRAW
