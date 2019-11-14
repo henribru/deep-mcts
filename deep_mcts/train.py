@@ -1,6 +1,7 @@
 import queue
 import random
 import time
+from functools import lru_cache
 from typing import Iterable, Tuple, Optional, TypeVar, Callable, Dict, List
 from pathlib import Path
 
@@ -201,7 +202,7 @@ def create_self_play_examples(
             game_manager,
             num_simulations,
             rollout_policy,
-            state_evaluator=game_net.evaluate_state,
+            state_evaluator=cached_state_evaluator(game_net),
             sample_move_cutoff=sample_move_cutoff,
         )
         examples = []
@@ -299,6 +300,8 @@ def evaluate(
     epsilon: float,
     games: int = 20,
 ) -> Tuple[AgentComparison, AgentComparison]:
+    state_evaluator = cached_state_evaluator(game_net)
+    previous_state_evaluator = cached_state_evaluator(previous_game_net)
     random_mcts_evaluation = compare_agents(
         (
             MCTSAgent(
@@ -306,7 +309,7 @@ def evaluate(
                     game_manager,
                     num_simulations,
                     rollout_policy,
-                    state_evaluator=game_net.evaluate_state,
+                    state_evaluator=state_evaluator,
                 )
             ),
             MCTSAgent(
@@ -328,7 +331,7 @@ def evaluate(
                     game_manager,
                     num_simulations,
                     rollout_policy,
-                    state_evaluator=game_net.evaluate_state,
+                    state_evaluator=state_evaluator,
                 ),
                 epsilon,
             ),
@@ -337,7 +340,7 @@ def evaluate(
                     game_manager,
                     num_simulations,
                     rollout_policy,
-                    state_evaluator=previous_game_net.evaluate_state,
+                    state_evaluator=previous_state_evaluator,
                 ),
                 epsilon,
             ),
@@ -346,6 +349,16 @@ def evaluate(
         game_manager,
     )
     return random_mcts_evaluation, previous_evaluation
+
+
+def cached_state_evaluator(
+    game_net: GameNet[_S, _A]
+) -> Callable[[_S], Tuple[float, Dict[_A, float]]]:
+    @lru_cache(2 ** 10)
+    def inner(state: _S) -> Tuple[float, Dict[_A, float]]:
+        return game_net.evaluate_state(state)
+
+    return inner
 
 
 # def spawn_evaluator(
