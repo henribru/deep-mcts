@@ -1,7 +1,7 @@
 from pathlib import Path
 import datetime
 
-from deep_mcts import train
+from deep_mcts.train import train, TrainingConfiguration
 from deep_mcts.tictactoe.convolutionalnet import ConvolutionalTicTacToeNet
 from deep_mcts.tictactoe.game import TicTacToeManager
 
@@ -15,13 +15,15 @@ if __name__ == "__main__":
         / datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
     )
     save_dir.mkdir()
-    train.train(
+    train(
         anet,
-        num_games=5000,
-        num_simulations=25,
-        save_interval=10_000,
-        evaluation_interval=10_000,
-        save_dir=str(save_dir),
-        sample_move_cutoff=3,
-        dirichlet_alpha=2.5,
+        TrainingConfiguration(
+            num_games=5000,
+            num_simulations=25,
+            save_interval=10_000,
+            evaluation_interval=10_000,
+            save_dir=str(save_dir),
+            sample_move_cutoff=3,
+            dirichlet_alpha=2.5,
+        ),
     )

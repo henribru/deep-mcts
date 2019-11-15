@@ -4,6 +4,7 @@ import time
 from functools import lru_cache
 from typing import Iterable, Tuple, Optional, TypeVar, Callable, Dict, List
 from pathlib import Path
+from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
@@ -31,89 +32,52 @@ TensorSelfPlayGame = List[TensorSelfPlayExample]
 #     training_iterations = checkpoint["training_iterations"]
 
 
-def train(
-    game_net: GameNet[_S, _A],
-    num_games: int,
-    num_simulations: int,
-    save_interval: int,
-    evaluation_interval: int,
-    save_dir: str,
-    sample_move_cutoff: int,
-    dirichlet_alpha: float,
-    dirichlet_factor: float = 0.25,
-    rollout_policy: Optional[Callable[[_S], _A]] = None,
-    epsilon: float = 0.05,
-    nprocs: int = 25,
-    batch_size: int = 512,
-    replay_buffer_max_size: int = 100_000,
-    train_device: torch.device = torch.device("cuda:1"),
-    self_play_device: torch.device = torch.device("cuda:0"),
-) -> None:
+@dataclass(frozen=True)
+class TrainingConfiguration:
+    num_games: int
+    num_simulations: int
+    save_interval: int
+    evaluation_interval: int
+    save_dir: str
+    sample_move_cutoff: int
+    dirichlet_alpha: float
+    dirichlet_factor: float = 0.25
+    rollout_policy: Optional[Callable[[_S], _A]] = None
+    epsilon: float = 0.05
+    nprocs: int = 25
+    batch_size: int = 512
+    replay_buffer_max_size: int = 100_000
+    train_device: torch.device = torch.device("cuda:1")
+    self_play_device: torch.device = torch.device("cuda:0")
+    evaluation_games: int = 20
+
+
+def train(game_net: GameNet[_S, _A], config: TrainingConfiguration,) -> None:
     evaluations = pd.DataFrame.from_dict(
         {
             i: (random_evaluation, previous_evaluation)
-            for i, random_evaluation, previous_evaluation in _train(
-                game_net,
-                num_games,
-                num_simulations,
-                save_interval,
-                evaluation_interval,
-                save_dir,
-                sample_move_cutoff,
-                dirichlet_alpha,
-                dirichlet_factor,
-                rollout_policy,
-                epsilon,
-                nprocs,
-                batch_size,
-                replay_buffer_max_size,
-                train_device,
-                self_play_device,
-            )
+            for i, random_evaluation, previous_evaluation in _train(game_net, config,)
         },
         orient="index",
         columns=["against_random", "against_previous"],
     )
-    evaluations.to_csv(f"{save_dir}/evaluations.csv")
+    evaluations.to_csv(f"{config.save_dir}/evaluations.csv")
 
 
 def _train(
-    game_net: GameNet[_S, _A],
-    num_games: int,
-    num_simulations: int,
-    save_interval: int,
-    evaluation_interval: int,
-    save_dir: str,
-    sample_move_cutoff: int,
-    dirichlet_alpha: float,
-    dirichlet_factor: float,
-    rollout_policy: Optional[Callable[[_S], _A]],
-    epsilon: float,
-    nprocs: int,
-    batch_size: int,
-    replay_buffer_max_size: int,
-    train_device: torch.device,
-    self_play_device: torch.device,
+    game_net: GameNet[_S, _A], config: TrainingConfiguration,
 ) -> Iterable[Tuple[int, AgentComparison, AgentComparison]]:
     print(f"{time.strftime('%H:%M:%S')} Starting")
     game_manager = game_net.manager
-    game_net.to(train_device)
+    game_net.to(config.train_device)
     replay_buffer: List[TensorSelfPlayGame] = []
-    game_net.save(f"{save_dir}/anet-0.pth")
+    game_net.save(f"{config.save_dir}/anet-0.pth")
     multiprocessing.set_start_method("spawn")
     self_playing_context, games_queue = spawn_self_play_example_creators(
-        game_net,
-        num_games,
-        num_simulations,
-        dirichlet_alpha,
-        dirichlet_factor,
-        rollout_policy,
-        sample_move_cutoff,
-        nprocs,
-        self_play_device,
+        game_net, config,
     )
     previous_game_net = game_net.copy()
-    previous_game_net.to(train_device)
+    previous_game_net.to(config.train_device)
     training_iterations = 0
     training_games_count = 0
     training_examples_count = 0
@@ -125,31 +89,28 @@ def _train(
         training_games_count += len(new_games)
         training_examples_count += sum(len(game) for game in new_games)
         replay_buffer.extend(new_games)
-        if len(replay_buffer) > replay_buffer_max_size:
-            replay_buffer = replay_buffer[-replay_buffer_max_size:]
+        if len(replay_buffer) > config.replay_buffer_max_size:
+            replay_buffer = replay_buffer[-config.replay_buffer_max_size :]
         states, probability_targets, value_targets = sample_replay_buffer(
-            replay_buffer, batch_size, train_device
+            replay_buffer, config.batch_size, config.train_device
         )
         game_net.train(states, probability_targets, value_targets)
 
-        if save_interval != 0 and (training_iterations + 1) % save_interval == 0:
-            filepath = f"{save_dir}/anet-{training_iterations + 1}.pth"
+        if (
+            config.save_interval != 0
+            and (training_iterations + 1) % config.save_interval == 0
+        ):
+            filepath = f"{config.save_dir}/anet-{training_iterations + 1}.pth"
             game_net.save(filepath)
             print(f"{time.strftime('%H:%M:%S')} Saved {filepath}")
 
         if (
-            evaluation_interval != 0
-            and (training_iterations + 1) % evaluation_interval == 0
+            config.evaluation_interval != 0
+            and (training_iterations + 1) % config.evaluation_interval == 0
         ):
             print(f"{time.strftime('%H:%M:%S')} evaluating")
             random_mcts_evaluation, previous_evaluation = evaluate(
-                game_net,
-                previous_game_net,
-                game_manager,
-                num_simulations,
-                rollout_policy,
-                dirichlet_alpha,
-                dirichlet_factor,
+                game_net, previous_game_net, game_manager, config,
             )
             print(
                 f"{time.strftime('%H:%M:%S')} "
@@ -165,31 +126,13 @@ def _train(
 
 
 def spawn_self_play_example_creators(
-    game_net: GameNet[_S, _A],
-    num_games: int,
-    num_simulations: int,
-    dirichlet_alpha: float,
-    dirichlet_factor: float,
-    rollout_policy: Optional[Callable[[_S], _A]],
-    sample_move_cutoff: int,
-    nprocs: int,
-    device: Optional[torch.device] = None,
+    game_net: GameNet[_S, _A], config: TrainingConfiguration,
 ) -> Tuple[multiprocessing.SpawnContext, "multiprocessing.Queue[SelfPlayGame[_S, _A]]"]:
     games_queue: "multiprocessing.Queue[SelfPlayGame[_S, _A]]" = multiprocessing.Queue()
     context = multiprocessing.spawn(
         create_self_play_examples,
-        (
-            game_net,
-            num_games,
-            num_simulations,
-            dirichlet_alpha,
-            dirichlet_factor,
-            rollout_policy,
-            games_queue,
-            sample_move_cutoff,
-            device,
-        ),
-        nprocs=nprocs,
+        (game_net, config, games_queue),
+        nprocs=config.nprocs,
         join=False,
     )
     return context, games_queue
@@ -198,29 +141,23 @@ def spawn_self_play_example_creators(
 def create_self_play_examples(
     process_number: int,
     game_net: GameNet[_S, _A],
-    num_games: int,
-    num_simulations: int,
-    dirichlet_alpha: float,
-    dirichlet_factor: float,
-    rollout_policy: Optional[Callable[[_S], _A]],
+    config: TrainingConfiguration,
     games_queue: "multiprocessing.Queue[SelfPlayGame[_S, _A]]",
-    sample_move_cutoff: int,
-    device: Optional[torch.device],
 ) -> None:
     game_manager = game_net.manager
-    if device is not None:
+    if config.self_play_device is not None:
         original_game_net = game_net
         game_net = game_net.copy()
-        game_net.to(device)
-    for i in range(num_games):
+        game_net.to(config.self_play_device)
+    for i in range(config.num_games):
         mcts = MCTS(
             game_manager,
-            num_simulations,
-            rollout_policy,
+            config.num_simulations,
+            config.rollout_policy,
             cached_state_evaluator(game_net),
-            sample_move_cutoff,
-            dirichlet_alpha,
-            dirichlet_factor,
+            config.sample_move_cutoff,
+            config.dirichlet_alpha,
+            config.dirichlet_factor,
         )
         examples = []
         for state, next_state, action, visit_distribution in mcts.self_play():
@@ -236,7 +173,7 @@ def create_self_play_examples(
                 for state, visit_distribution in examples
             ]
         )
-        if device is not None:
+        if config.self_play_device is not None:
             game_net.net.load_state_dict(original_game_net.net.state_dict())
         if i % 100 == 0 and process_number == 0:
             print(f"{time.strftime('%H:%M:%S')} {i}")
@@ -308,11 +245,7 @@ def evaluate(
     game_net: GameNet[_S, _A],
     previous_game_net: GameNet[_S, _A],
     game_manager: GameManager[_S, _A],
-    num_simulations: int,
-    rollout_policy: Optional[Callable[[_S], _A]],
-    dirichlet_alpha: float,
-    dirichlet_factor: float,
-    games: int = 20,
+    config: TrainingConfiguration,
 ) -> Tuple[AgentComparison, AgentComparison]:
     state_evaluator = cached_state_evaluator(game_net)
     previous_state_evaluator = cached_state_evaluator(previous_game_net)
@@ -321,21 +254,21 @@ def evaluate(
             MCTSAgent(
                 MCTS(
                     game_manager,
-                    num_simulations,
-                    rollout_policy,
+                    config.num_simulations,
+                    config.rollout_policy,
                     state_evaluator=state_evaluator,
                 )
             ),
             MCTSAgent(
                 MCTS(
                     game_manager,
-                    num_simulations * 4,
+                    config.num_simulations * 4,
                     lambda s: random.choice(game_manager.legal_actions(s)),
                     state_evaluator=None,
                 )
             ),
         ),
-        games,
+        config.evaluation_games,
         game_manager,
     )
     previous_evaluation = compare_agents(
@@ -343,25 +276,25 @@ def evaluate(
             MCTSAgent(
                 MCTS(
                     game_manager,
-                    num_simulations,
-                    rollout_policy,
+                    config.num_simulations,
+                    config.rollout_policy,
                     state_evaluator,
-                    dirichlet_alpha=dirichlet_alpha,
-                    dirichlet_factor=dirichlet_factor,
+                    dirichlet_alpha=config.dirichlet_alpha,
+                    dirichlet_factor=config.dirichlet_factor,
                 ),
             ),
             MCTSAgent(
                 MCTS(
                     game_manager,
-                    num_simulations,
-                    rollout_policy,
+                    config.num_simulations,
+                    config.rollout_policy,
                     previous_state_evaluator,
-                    dirichlet_alpha=dirichlet_alpha,
-                    dirichlet_factor=dirichlet_factor,
+                    dirichlet_alpha=config.dirichlet_alpha,
+                    dirichlet_factor=config.dirichlet_factor,
                 ),
             ),
         ),
-        games,
+        config.evaluation_games,
         game_manager,
     )
     return random_mcts_evaluation, previous_evaluation
