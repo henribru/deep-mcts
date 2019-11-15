@@ -7,6 +7,7 @@ from deep_mcts.game import State, Outcome
 
 _S = TypeVar("_S", bound=State)
 _A = TypeVar("_A")
+AgentComparison = Tuple[Tuple[float, float], Tuple[float, float], Tuple[float, float]]
 
 if TYPE_CHECKING:
     from deep_mcts.mcts import GameManager
@@ -37,18 +38,16 @@ class RandomAgent(Agent[_S, _A]):
 
 def tournament(
     agents: Sequence[Agent[_S, _A]], num_games: int, game_manager: "GameManager[_S, _A]"
-) -> List[List[Tuple[float, float, float]]]:
+) -> List[List[AgentComparison]]:
     results = [
-        [(0.0, 0.0, 0.0) for _ in range(len(agents))] for _ in range(len(agents))
+        [((0.0, 0.0), (0.0, 0.0), (0.0, 0.0)) for _ in range(len(agents))]
+        for _ in range(len(agents))
     ]
     for (i, agent_1), (j, agent_2) in itertools.combinations(enumerate(agents), 2):
         result = compare_agents((agent_1, agent_2), num_games, game_manager)
-        results[i][j] = (sum(result[0]), sum(result[1]), sum(result[2]))
-        results[j][i] = (sum(result[2]), sum(result[1]), sum(result[0]))
+        results[i][j] = result
+        results[j][i] = (result[2], result[1], result[0])
     return results
-
-
-AgentComparison = Tuple[Tuple[float, float], Tuple[float, float], Tuple[float, float]]
 
 
 def compare_agents(
