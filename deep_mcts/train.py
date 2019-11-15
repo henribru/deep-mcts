@@ -116,9 +116,9 @@ def _train(
         )
         training_games_count += len(new_games)
         training_examples_count += sum(len(game) for game in new_games)
-        if len(replay_buffer) > replay_buffer_max_size:
-            replay_buffer = replay_buffer[:-replay_buffer_max_size]
         replay_buffer.extend(new_games)
+        if len(replay_buffer) > replay_buffer_max_size:
+            replay_buffer = replay_buffer[-replay_buffer_max_size:]
         states, probability_targets, value_targets = sample_replay_buffer(
             replay_buffer, batch_size, train_device
         )
