@@ -6,7 +6,7 @@ from typing import Callable, Dict, List, Tuple, Iterable, TypeVar, Generic, Opti
 
 import numpy as np
 
-from deep_mcts.game import GameManager, State, Player
+from deep_mcts.game import GameManager, State, Player, Outcome
 from deep_mcts.tournament import Agent
 
 _S = TypeVar("_S", bound=State)
@@ -36,7 +36,11 @@ class Node(Generic[_S, _A]):
     def Q(self) -> float:
         if self.N == 0:
             assert self.E == 0
-            return 0
+            return (
+                Outcome.FIRST_PLAYER_WIN
+                if self.state.player == Player.SECOND
+                else Outcome.SECOND_PLAYER_WIN
+            )
         return self.E / self.N
 
 
