@@ -47,6 +47,8 @@ class MCTS(Generic[_S, _A]):
     rollout_policy: Optional[Callable[[_S], _A]]
     state_evaluator: Optional[Callable[[_S], Tuple[float, Dict[_A, float]]]]
     sample_move_cutoff: int
+    dirichlet_alpha: float
+    dirichlet_factor: float
 
     def __init__(
         self,
@@ -55,6 +57,8 @@ class MCTS(Generic[_S, _A]):
         rollout_policy: Optional[Callable[[_S], _A]],
         state_evaluator: Optional[Callable[[_S], Tuple[float, Dict[_A, float]]]],
         sample_move_cutoff: int = 0,
+        dirichlet_alpha: float = 0.0,
+        dirichlet_factor: float = 0.25,
     ) -> None:
         self.game_manager = game_manager
         self.num_simulations = num_simulations
@@ -63,6 +67,8 @@ class MCTS(Generic[_S, _A]):
         initial_state = self.game_manager.initial_game_state()
         self.root = Node(initial_state)
         self.sample_move_cutoff = sample_move_cutoff
+        self.dirichlet_alpha = dirichlet_alpha
+        self.dirichlet_factor = dirichlet_factor
 
     def tree_search(self) -> List[Node[_S, _A]]:
         path = [self.root]
@@ -134,7 +140,20 @@ class MCTS(Generic[_S, _A]):
             i += 1
             yield current_node.state, next_node.state, action, action_probabilities
 
+    def add_dirichlet_noise(self, node: Node[_S, _A]) -> None:
+        if self.dirichlet_alpha == 0:
+            return
+        noise = np.random.dirichlet([self.dirichlet_alpha] * len(node.children))
+        for i, child in enumerate(node.children.values()):
+            child.P = (
+                child.P * (1 - self.dirichlet_factor) + noise[i] * self.dirichlet_factor
+            )
+
     def step(self) -> Dict[_A, float]:
+        if not self.root.children:
+            self.expand_node(self.root)
+            self.root.N += 1
+        self.add_dirichlet_noise(self.root)
         for _ in range(self.num_simulations):
             path = self.tree_search()
             leaf_node = path[-1]
@@ -144,10 +163,9 @@ class MCTS(Generic[_S, _A]):
                 assert leaf_node.Q == evaluation
             else:
                 assert (leaf_node.N, leaf_node.E) == (1, evaluation)
-        assert self.root.N == sum(node.N for node in self.root.children.values()) + 1
+        visit_sum = sum(node.N for node in self.root.children.values())
         return {
-            action: node.N / (self.root.N - 1)
-            for action, node in self.root.children.items()
+            action: node.N / visit_sum for action, node in self.root.children.items()
         }
 
     def reset(self) -> None:

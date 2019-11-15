@@ -39,6 +39,8 @@ def train(
     evaluation_interval: int,
     save_dir: str,
     sample_move_cutoff: int,
+    dirichlet_alpha: float,
+    dirichlet_factor: float = 0.25,
     rollout_policy: Optional[Callable[[_S], _A]] = None,
     epsilon: float = 0.05,
     nprocs: int = 25,
@@ -58,6 +60,8 @@ def train(
                 evaluation_interval,
                 save_dir,
                 sample_move_cutoff,
+                dirichlet_alpha,
+                dirichlet_factor,
                 rollout_policy,
                 epsilon,
                 nprocs,
@@ -81,6 +85,8 @@ def _train(
     evaluation_interval: int,
     save_dir: str,
     sample_move_cutoff: int,
+    dirichlet_alpha: float,
+    dirichlet_factor: float,
     rollout_policy: Optional[Callable[[_S], _A]],
     epsilon: float,
     nprocs: int,
@@ -99,6 +105,8 @@ def _train(
         game_net,
         num_games,
         num_simulations,
+        dirichlet_alpha,
+        dirichlet_factor,
         rollout_policy,
         sample_move_cutoff,
         nprocs,
@@ -140,7 +148,8 @@ def _train(
                 game_manager,
                 num_simulations,
                 rollout_policy,
-                epsilon,
+                dirichlet_alpha,
+                dirichlet_factor,
             )
             print(
                 f"{time.strftime('%H:%M:%S')} "
@@ -159,6 +168,8 @@ def spawn_self_play_example_creators(
     game_net: GameNet[_S, _A],
     num_games: int,
     num_simulations: int,
+    dirichlet_alpha: float,
+    dirichlet_factor: float,
     rollout_policy: Optional[Callable[[_S], _A]],
     sample_move_cutoff: int,
     nprocs: int,
@@ -171,6 +182,8 @@ def spawn_self_play_example_creators(
             game_net,
             num_games,
             num_simulations,
+            dirichlet_alpha,
+            dirichlet_factor,
             rollout_policy,
             games_queue,
             sample_move_cutoff,
@@ -187,6 +200,8 @@ def create_self_play_examples(
     game_net: GameNet[_S, _A],
     num_games: int,
     num_simulations: int,
+    dirichlet_alpha: float,
+    dirichlet_factor: float,
     rollout_policy: Optional[Callable[[_S], _A]],
     games_queue: "multiprocessing.Queue[SelfPlayGame[_S, _A]]",
     sample_move_cutoff: int,
@@ -202,8 +217,10 @@ def create_self_play_examples(
             game_manager,
             num_simulations,
             rollout_policy,
-            state_evaluator=cached_state_evaluator(game_net),
-            sample_move_cutoff=sample_move_cutoff,
+            cached_state_evaluator(game_net),
+            sample_move_cutoff,
+            dirichlet_alpha,
+            dirichlet_factor,
         )
         examples = []
         for state, next_state, action, visit_distribution in mcts.self_play():
@@ -277,9 +294,7 @@ def sample_replay_buffer(
     replay_buffer: List[TensorSelfPlayGame], batch_size: int, device: torch.device
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     games = random.choices(
-        replay_buffer,
-        weights=[len(game) for game in replay_buffer],
-        k=batch_size
+        replay_buffer, weights=[len(game) for game in replay_buffer], k=batch_size
     )
     examples = [random.choice(game) for game in games]
     states, probability_targets, value_targets = zip(*examples)
@@ -295,7 +310,8 @@ def evaluate(
     game_manager: GameManager[_S, _A],
     num_simulations: int,
     rollout_policy: Optional[Callable[[_S], _A]],
-    epsilon: float,
+    dirichlet_alpha: float,
+    dirichlet_factor: float,
     games: int = 20,
 ) -> Tuple[AgentComparison, AgentComparison]:
     state_evaluator = cached_state_evaluator(game_net)
@@ -329,18 +345,20 @@ def evaluate(
                     game_manager,
                     num_simulations,
                     rollout_policy,
-                    state_evaluator=state_evaluator,
+                    state_evaluator,
+                    dirichlet_alpha=dirichlet_alpha,
+                    dirichlet_factor=dirichlet_factor,
                 ),
-                epsilon,
             ),
             MCTSAgent(
                 MCTS(
                     game_manager,
                     num_simulations,
                     rollout_policy,
-                    state_evaluator=previous_state_evaluator,
+                    previous_state_evaluator,
+                    dirichlet_alpha=dirichlet_alpha,
+                    dirichlet_factor=dirichlet_factor,
                 ),
-                epsilon,
             ),
         ),
         games,

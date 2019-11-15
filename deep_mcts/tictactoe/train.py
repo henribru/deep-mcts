@@ -23,4 +23,5 @@ if __name__ == "__main__":
         evaluation_interval=10_000,
         save_dir=str(save_dir),
         sample_move_cutoff=3,
+        dirichlet_alpha=2.5,
     )
