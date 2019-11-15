@@ -10,7 +10,9 @@ if __name__ == "__main__":
     manager = TicTacToeManager()
     anet = ConvolutionalTicTacToeNet(manager)
     save_dir = (
-        Path(__file__).resolve().parent / "saves" / datetime.datetime.now().isoformat()
+        Path(__file__).resolve().parent
+        / "saves"
+        / datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
     )
     save_dir.mkdir()
     train.train(
