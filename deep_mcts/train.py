@@ -352,7 +352,7 @@ def evaluate(
 def cached_state_evaluator(
     game_net: GameNet[_S, _A]
 ) -> Callable[[_S], Tuple[float, Dict[_A, float]]]:
-    @lru_cache(2 ** 10)
+    @lru_cache(2 ** 20)
     def inner(state: _S) -> Tuple[float, Dict[_A, float]]:
         return game_net.evaluate_state(state)
 
