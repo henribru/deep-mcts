@@ -26,7 +26,7 @@ TensorSelfPlayGame = List[TensorSelfPlayExample]
 # def train_from_checkpoint(anet: GameNet[_S, _A], path: str) -> None:
 #     save_dir = Path(path).resolve().parent
 #     checkpoint = torch.load(path)
-#     anet.net.load_state_dict(checkpoint["model_state_dict"])
+#     anet.load_state_dict(checkpoint["model_state_dict"])
 #     replay_buffer = checkpoint["replay_buffer"]
 #     anet.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
 #     training_iterations = checkpoint["training_iterations"]
@@ -73,11 +73,11 @@ def _train(
     replay_buffer: List[TensorSelfPlayGame] = []
     game_net.save(f"{config.save_dir}/anet-0.pth")
     multiprocessing.set_start_method("spawn")
+    self_play_game_net = game_net.copy().to(config.self_play_device)
     self_playing_context, games_queue = spawn_self_play_example_creators(
-        game_net, config,
+        self_play_game_net, config,
     )
-    previous_game_net = game_net.copy()
-    previous_game_net.to(config.train_device)
+    previous_game_net = game_net.copy().to(config.train_device)
     training_iterations = 0
     training_games_count = 0
     training_examples_count = 0
@@ -108,6 +108,7 @@ def _train(
             config.evaluation_interval != 0
             and (training_iterations + 1) % config.evaluation_interval == 0
         ):
+            self_play_game_net.load_state_dict(game_net.net.state_dict())
             print(f"{time.strftime('%H:%M:%S')} evaluating")
             random_mcts_evaluation, previous_evaluation = evaluate(
                 game_net, previous_game_net, game_manager, config,
@@ -119,7 +120,7 @@ def _train(
                 f"previous: {previous_evaluation} random MCTS: {random_mcts_evaluation} "
             )
             prev_evaluation_time = time.perf_counter()
-            previous_game_net.net.load_state_dict(game_net.net.state_dict())
+            previous_game_net.load_state_dict(game_net.net.state_dict())
             yield training_iterations, random_mcts_evaluation, previous_evaluation
 
         training_iterations += 1
@@ -145,10 +146,6 @@ def create_self_play_examples(
     games_queue: "multiprocessing.Queue[SelfPlayGame[_S, _A]]",
 ) -> None:
     game_manager = game_net.manager
-    if config.self_play_device is not None:
-        original_game_net = game_net
-        game_net = game_net.copy()
-        game_net.to(config.self_play_device)
     for i in range(config.num_games):
         mcts = MCTS(
             game_manager,
@@ -173,8 +170,6 @@ def create_self_play_examples(
                 for state, visit_distribution in examples
             ]
         )
-        if config.self_play_device is not None:
-            game_net.net.load_state_dict(original_game_net.net.state_dict())
         if i % 100 == 0 and process_number == 0:
             print(f"{time.strftime('%H:%M:%S')} {i}")
             cached_methods = [

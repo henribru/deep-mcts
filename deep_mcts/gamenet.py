@@ -183,6 +183,9 @@ class GameNet(ABC, Generic[_S, _A]):
         anet.load(path)
         return anet
 
+    def load_state_dict(self, state_dict: Dict[str, torch.Tensor]) -> None:
+        self.net.load_state_dict(state_dict)
+
 
 class GameNetAgent(Agent[_S, _A]):
     net: GameNet[_S, _A]
