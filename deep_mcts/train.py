@@ -50,6 +50,7 @@ class TrainingConfiguration:
     train_device: torch.device = torch.device("cuda:1")
     self_play_device: torch.device = torch.device("cuda:0")
     evaluation_games: int = 20
+    transfer_interval: int = 1000
 
 
 def train(game_net: GameNet[_S, _A], config: TrainingConfiguration,) -> None:
@@ -96,6 +97,9 @@ def _train(
         )
         game_net.train(states, probability_targets, value_targets)
 
+        if (training_iterations + 1) % config.transfer_interval == 0:
+            self_play_game_net.load_state_dict(game_net.net.state_dict())
+
         if (
             config.save_interval != 0
             and (training_iterations + 1) % config.save_interval == 0
@@ -108,7 +112,6 @@ def _train(
             config.evaluation_interval != 0
             and (training_iterations + 1) % config.evaluation_interval == 0
         ):
-            self_play_game_net.load_state_dict(game_net.net.state_dict())
             print(f"{time.strftime('%H:%M:%S')} evaluating")
             random_mcts_evaluation, previous_evaluation = evaluate(
                 game_net, previous_game_net, game_manager, config,
