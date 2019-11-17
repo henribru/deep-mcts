@@ -118,7 +118,7 @@ def _train(
             )
             print(
                 f"{time.strftime('%H:%M:%S')} "
-                f"iterations: {training_iterations} games: {training_games_count} "
+                f"iterations: {training_iterations + 1} games: {training_games_count} "
                 f"examples: {training_examples_count} evaluation_duration: {time.perf_counter() - prev_evaluation_time:.2f} "
                 f"previous: {previous_evaluation} random MCTS: {random_mcts_evaluation} "
             )
