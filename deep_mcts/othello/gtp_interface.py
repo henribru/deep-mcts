@@ -2,6 +2,7 @@ import os.path
 import re
 import string
 from typing import Mapping
+import sys
 
 from deep_mcts.gtp_interface import GTPInterface
 from deep_mcts.othello.convolutionalnet import ConvolutionalOthelloNet
@@ -16,8 +17,8 @@ from deep_mcts.othello.game import othello_probabilities_grid
 
 
 class OthelloGTPInterface(GTPInterface[OthelloState, OthelloAction]):
-    def __init__(self) -> None:
-        super().__init__(board_size=6)
+    def __init__(self, board_size: int = 6) -> None:
+        super().__init__(board_size)
 
     @staticmethod
     def parse_move(move: str, board_size: int) -> OthelloAction:
@@ -42,20 +43,9 @@ class OthelloGTPInterface(GTPInterface[OthelloState, OthelloAction]):
         return f"{string.ascii_lowercase[x]}{y + 1}"
 
     @staticmethod
-    def get_game_manager(board_size: int) -> OthelloManager:
-        return OthelloManager(board_size)
-
-    @staticmethod
     def get_game_net(board_size: int) -> ConvolutionalOthelloNet:
-        if board_size == 6:
-            return ConvolutionalOthelloNet.from_path(
-                os.path.join(
-                    os.path.abspath(os.path.dirname(__file__)),
-                    "saves",
-                    "anet-130000.pth",
-                ),
-                board_size,
-            )
+        if len(sys.argv) == 3 and board_size == int(sys.argv[1]):
+            return ConvolutionalOthelloNet.from_path(sys.argv[2], board_size)
         return ConvolutionalOthelloNet(board_size)
 
     @staticmethod
@@ -66,4 +56,8 @@ class OthelloGTPInterface(GTPInterface[OthelloState, OthelloAction]):
 
 
 if __name__ == "__main__":
-    OthelloGTPInterface().start()
+    if len(sys.argv) == 3:
+        gtp_interface = OthelloGTPInterface(board_size=int(sys.argv[1]))
+    else:
+        gtp_interface = OthelloGTPInterface()
+    gtp_interface.start()

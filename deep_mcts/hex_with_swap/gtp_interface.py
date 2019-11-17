@@ -1,6 +1,7 @@
 import re
 import string
 from typing import Callable, Dict, List, Optional, Mapping
+import sys
 
 from deep_mcts.gtp_interface import GTPInterface
 from deep_mcts.hex_with_swap.convolutionalnet import ConvolutionalHexWithSwapNet
@@ -21,8 +22,8 @@ class HexWithSwapGTPInterface(GTPInterface[HexState, HexWithSwapAction]):
     game_manager: HexWithSwapManager
     mcts: MCTS[HexState, HexWithSwapAction]
 
-    def __init__(self) -> None:
-        super().__init__(board_size=5)
+    def __init__(self, board_size: int = 5) -> None:
+        super().__init__(board_size)
         self.commands["hexgui-analyze_commands"] = self.analyze_commands
 
     def analyze_commands(self, args: List[str]) -> None:
@@ -51,11 +52,9 @@ class HexWithSwapGTPInterface(GTPInterface[HexState, HexWithSwapAction]):
         return f"{string.ascii_lowercase[x]}{y + 1}"
 
     @staticmethod
-    def get_game_manager(board_size: int) -> HexWithSwapManager:
-        return HexWithSwapManager(board_size)
-
-    @staticmethod
     def get_game_net(board_size: int) -> ConvolutionalHexWithSwapNet:
+        if board_size == int(sys.argv[1]):
+            return ConvolutionalHexWithSwapNet.from_path(sys.argv[2], board_size)
         return ConvolutionalHexWithSwapNet(board_size)
 
     @staticmethod
@@ -66,4 +65,8 @@ class HexWithSwapGTPInterface(GTPInterface[HexState, HexWithSwapAction]):
 
 
 if __name__ == "__main__":
-    HexWithSwapGTPInterface().start()
+    if len(sys.argv) == 3:
+        gtp_interface = HexWithSwapGTPInterface(board_size=int(sys.argv[1]))
+    else:
+        gtp_interface = HexWithSwapGTPInterface()
+    gtp_interface.start()

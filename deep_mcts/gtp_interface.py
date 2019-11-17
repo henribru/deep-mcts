@@ -38,8 +38,8 @@ class GTPInterface(ABC, Generic[_S, _A]):
             "result": self.result,
         }
         self.board_size = board_size
-        self.game_manager = self.get_game_manager(board_size)
         self.net = self.get_game_net(board_size).to(DEVICE)
+        self.game_manager = self.net.manager
         self.mcts = MCTS(
             self.game_manager,
             num_simulations=100,
@@ -90,8 +90,8 @@ class GTPInterface(ABC, Generic[_S, _A]):
         self.clear_board([])
 
     def clear_board(self, args: List[str]) -> None:
-        self.game_manager = self.get_game_manager(self.board_size)
         self.net = self.get_game_net(self.board_size)
+        self.game_manager = self.net.manager
         self.mcts = MCTS(
             self.game_manager,
             num_simulations=100,
@@ -176,11 +176,6 @@ class GTPInterface(ABC, Generic[_S, _A]):
     @staticmethod
     @abstractmethod
     def format_move(move: _A) -> str:
-        ...
-
-    @staticmethod
-    @abstractmethod
-    def get_game_manager(board_size: int) -> GameManager[_S, _A]:
         ...
 
     @staticmethod

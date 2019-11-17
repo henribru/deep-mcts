@@ -2,6 +2,7 @@ import os.path
 import re
 import string
 from typing import Mapping, List
+import sys
 
 from deep_mcts.gtp_interface import GTPInterface
 from deep_mcts.hex.convolutionalnet import ConvolutionalHexNet
@@ -10,8 +11,8 @@ from deep_mcts.hex.game import hex_probabilities_grid
 
 
 class HexGTPInterface(GTPInterface[HexState, HexAction]):
-    def __init__(self) -> None:
-        super().__init__(board_size=5)
+    def __init__(self, board_size: int = 5) -> None:
+        super().__init__(board_size)
         self.commands["hexgui-analyze_commands"] = self.analyze_commands
 
     def analyze_commands(self, args: List[str]) -> None:
@@ -36,20 +37,9 @@ class HexGTPInterface(GTPInterface[HexState, HexAction]):
         return f"{string.ascii_lowercase[x]}{y + 1}"
 
     @staticmethod
-    def get_game_manager(board_size: int) -> HexManager:
-        return HexManager(board_size)
-
-    @staticmethod
     def get_game_net(board_size: int) -> ConvolutionalHexNet:
-        if board_size == 5:
-            return ConvolutionalHexNet.from_path(
-                os.path.join(
-                    os.path.abspath(os.path.dirname(__file__)),
-                    "saves",
-                    "anet-364000.pth",
-                ),
-                board_size,
-            )
+        if board_size == int(sys.argv[1]):
+            return ConvolutionalHexNet.from_path(sys.argv[2], board_size)
         return ConvolutionalHexNet(board_size)
 
     @staticmethod
@@ -60,4 +50,8 @@ class HexGTPInterface(GTPInterface[HexState, HexAction]):
 
 
 if __name__ == "__main__":
-    HexGTPInterface().start()
+    if len(sys.argv) == 3:
+        gtp_interface = HexGTPInterface(board_size=int(sys.argv[1]))
+    else:
+        gtp_interface = HexGTPInterface()
+    gtp_interface.start()
