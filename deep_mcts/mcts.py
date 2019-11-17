@@ -34,13 +34,10 @@ class Node(Generic[_S, _A]):
 
     @property
     def Q(self) -> float:
+        # Count unvisited nodes as lost
         if self.N == 0:
             assert self.E == 0
-            return (
-                Outcome.FIRST_PLAYER_WIN
-                if self.state.player == Player.SECOND
-                else Outcome.SECOND_PLAYER_WIN
-            )
+            return self.state.player.loss().value  # type: ignore[no-any-return]
         return self.E / self.N
 
 
@@ -78,7 +75,7 @@ class MCTS(Generic[_S, _A]):
         path = [self.root]
         node = self.root
         while node.children:
-            if node.state.player == Player.SECOND:
+            if node.state.player == Player.max_player():
                 node = max(node.children.values(), key=lambda n: n.Q + n.u(node))
             else:
                 node = min(node.children.values(), key=lambda n: n.Q - n.u(node))
@@ -93,7 +90,7 @@ class MCTS(Generic[_S, _A]):
         }
         if self.state_evaluator is None:
             value, probabilities = (
-                0.0,
+                0.5,
                 {action: 1 / len(node.children) for action in node.children.keys()},
             )
         else:
@@ -105,24 +102,30 @@ class MCTS(Generic[_S, _A]):
     def rollout(self, node: Node[_S, _A]) -> float:
         assert (node.E, node.N) == (0.0, 0)
         if self.rollout_policy is None:
-            return 0
+            return 0.5
         state = node.state
         while not self.game_manager.is_final_state(state):
             action = self.rollout_policy(state)
             state = self.game_manager.generate_child_state(state, action)
-        return self.game_manager.evaluate_final_state(state)
+        return self.game_manager.evaluate_final_state(state).value  # type: ignore[no-any-return]
 
     def backpropagate(self, path: Iterable[Node[_S, _A]], evaluation: float) -> None:
         for node in path:
             node.N += 1
             node.E += evaluation
-            assert -1.0 <= node.Q <= 1.0
+            assert 0.0 <= node.Q <= 1.0
 
     def evaluate_leaf(self, leaf_node: Node[_S, _A]) -> float:
         if self.game_manager.is_final_state(leaf_node.state):
-            return self.game_manager.evaluate_final_state(leaf_node.state)
+            return self.game_manager.evaluate_final_state(leaf_node.state).value  # type: ignore[no-any-return]
+        value = self.expand_node(leaf_node)
+        rollout_value = self.rollout(leaf_node)
+        if self.state_evaluator is None:
+            return rollout_value
+        elif self.rollout_policy is None:
+            return value
         else:
-            return self.expand_node(leaf_node) + self.rollout(leaf_node)
+            return (rollout_value + value) / 2
 
     def self_play(self) -> Iterable[Tuple[_S, _S, _A, Dict[_A, float]]]:
         i = 0
@@ -163,10 +166,11 @@ class MCTS(Generic[_S, _A]):
             leaf_node = path[-1]
             evaluation = self.evaluate_leaf(leaf_node)
             self.backpropagate(path, evaluation)
-            if self.game_manager.is_final_state(leaf_node.state):
-                assert leaf_node.Q == evaluation
-            else:
-                assert (leaf_node.N, leaf_node.E) == (1, evaluation)
+            if __debug__:
+                if self.game_manager.is_final_state(leaf_node.state):
+                    assert leaf_node.Q == evaluation
+                else:
+                    assert (leaf_node.N, leaf_node.E) == (1, evaluation)
         visit_sum = sum(node.N for node in self.root.children.values())
         return {
             action: node.N / visit_sum for action, node in self.root.children.items()

@@ -146,7 +146,7 @@ class OthelloManager(GameManager[OthelloState, OthelloAction]):
     @lru_cache(maxsize=2 ** 20)
     def evaluate_final_state(  # type: ignore[override]
         self, state: OthelloState
-    ) -> int:
+    ) -> Outcome:
         first_player_pieces = sum(
             sum(c == CellState.FIRST_PLAYER for c in row) for row in state.grid
         )

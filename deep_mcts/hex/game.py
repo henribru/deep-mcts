@@ -90,7 +90,7 @@ class HexManager(GameManager[HexState, HexAction]):
         return self.evaluate_final_state(state) != Outcome.DRAW
 
     @lru_cache(maxsize=2 ** 20)
-    def evaluate_final_state(self, state: HexState) -> int:  # type: ignore[override]
+    def evaluate_final_state(self, state: HexState) -> Outcome:  # type: ignore[override]
         starts = (
             (0, y)
             for y in range(self.grid_size)
@@ -139,7 +139,7 @@ class HexManager(GameManager[HexState, HexAction]):
         )
 
     def _get_neighbours(
-        self, coordinate: Tuple[int, int], player: int, state: HexState
+        self, coordinate: Tuple[int, int], player: Player, state: HexState
     ) -> Iterable[Tuple[int, int]]:
         x, y = coordinate
         shifts = [(0, -1), (1, -1), (1, 0), (0, 1), (-1, 1), (-1, 0)]
@@ -149,7 +149,7 @@ class HexManager(GameManager[HexState, HexAction]):
             if (
                 0 <= shifted_x < self.grid_size
                 and 0 <= shifted_y < self.grid_size
-                and state.grid[shifted_y][shifted_x] == player
+                and state.grid[shifted_y][shifted_x] == CellState(player)
             ):
                 yield shifted_x, shifted_y
 

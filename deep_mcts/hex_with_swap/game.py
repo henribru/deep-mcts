@@ -3,7 +3,7 @@ from typing import List, Union, Mapping, cast
 
 from dataclasses import dataclass
 
-from deep_mcts.game import Player, CellState, GameManager
+from deep_mcts.game import Player, CellState, Outcome, GameManager
 from deep_mcts.hex.game import HexManager, HexState, HexAction, hex_probabilities_grid
 from deep_mcts.mcts import play_random_mcts
 
@@ -29,7 +29,7 @@ class HexWithSwapManager(GameManager[HexState, HexWithSwapAction]):
     @lru_cache(maxsize=2 ** 20)
     def evaluate_final_state(  # type: ignore[override]
         self, state: HexState
-    ) -> int:
+    ) -> Outcome:
         return self.manager.evaluate_final_state(state)
 
     @lru_cache(maxsize=2 ** 20)

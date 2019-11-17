@@ -88,7 +88,7 @@ def compare_agents(
 
 def play(
     players: Tuple[Agent[_S, _A], Agent[_S, _A]], game_manager: "GameManager[_S, _A]"
-) -> int:
+) -> Outcome:
     state = game_manager.initial_game_state()
     player = 0
     while not game_manager.is_final_state(state):

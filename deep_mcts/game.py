@@ -1,5 +1,5 @@
 from abc import abstractmethod, ABC
-from enum import IntEnum
+from enum import IntEnum, Enum
 from functools import lru_cache
 from typing import TypeVar, Dict, Generic, List
 
@@ -16,6 +16,26 @@ class Player(IntEnum):
         else:
             return Player.FIRST
 
+    def win(self) -> "Outcome":
+        if self == Player.FIRST:
+            return Outcome.FIRST_PLAYER_WIN
+        else:
+            return Outcome.SECOND_PLAYER_WIN
+
+    def loss(self) -> "Outcome":
+        if self == Player.SECOND:
+            return Outcome.FIRST_PLAYER_WIN
+        else:
+            return Outcome.SECOND_PLAYER_WIN
+
+    @staticmethod
+    def max_player() -> "Player":
+        return Player.SECOND
+
+    @staticmethod
+    def min_player() -> "Player":
+        return Player.FIRST
+
 
 class CellState(IntEnum):
     FIRST_PLAYER = Player.FIRST
@@ -31,10 +51,10 @@ class CellState(IntEnum):
             return CellState.FIRST_PLAYER
 
 
-class Outcome(IntEnum):
-    FIRST_PLAYER_WIN = -1
-    SECOND_PLAYER_WIN = 1
-    DRAW = 0
+class Outcome(Enum):
+    FIRST_PLAYER_WIN = 1.0 if Player.max_player() == Player.FIRST else 0.0
+    SECOND_PLAYER_WIN = 1.0 if Player.max_player() == Player.SECOND else 0.0
+    DRAW = 0.5
 
 
 # We can't make this (or any other state or action)
@@ -79,5 +99,5 @@ class GameManager(ABC, Generic[_S, _A]):
         ...
 
     @abstractmethod
-    def evaluate_final_state(self, state: _S) -> int:
+    def evaluate_final_state(self, state: _S) -> Outcome:
         ...

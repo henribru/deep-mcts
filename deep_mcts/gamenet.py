@@ -70,8 +70,10 @@ class GameNet(ABC, Generic[_S, _A]):
         value = torch.tanh(value)
         # The output value is from the perspective of the current player,
         # but MCTS expects it to be independent of the player
-        if state.player == Player.FIRST:
+        if state.player == Player.min_player():
             value = -value
+        # MCTS uses a range of [0, 1]
+        value = (value + 1) / 2
         shape = probabilities.shape
         assert probabilities.shape == shape
         probabilities = F.softmax(probabilities.reshape((1, -1)), dim=1).reshape(shape)

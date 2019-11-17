@@ -9,6 +9,7 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 import torch
+import torch.autograd
 from torch import multiprocessing
 
 from deep_mcts.game import State, GameManager
@@ -95,7 +96,11 @@ def _train(
         states, probability_targets, value_targets = sample_replay_buffer(
             replay_buffer, config.batch_size, config.train_device
         )
-        game_net.train(states, probability_targets, value_targets)
+        if __debug__:
+            with torch.autograd.detect_anomaly():
+                game_net.train(states, probability_targets, value_targets)
+        else:
+            game_net.train(states, probability_targets, value_targets)
 
         if (training_iterations + 1) % config.transfer_interval == 0:
             self_play_game_net.load_state_dict(game_net.net.state_dict())
@@ -162,13 +167,14 @@ def create_self_play_examples(
         examples = []
         for state, next_state, action, visit_distribution in mcts.self_play():
             examples.append((state, visit_distribution))
-        outcome = game_manager.evaluate_final_state(next_state)
+        # The network uses a range of [-1, 1]
+        outcome = game_manager.evaluate_final_state(next_state).value * 2 - 1
         games_queue.put(
             [
                 (
                     state,
                     visit_distribution,
-                    outcome if state.player == Player.SECOND else -outcome,
+                    outcome if state.player == Player.max_player() else -outcome,
                 )
                 for state, visit_distribution in examples
             ]

@@ -74,7 +74,7 @@ class TicTacToeManager(GameManager[TicTacToeState, TicTacToeAction]):
     @lru_cache(maxsize=2 ** 20)
     def evaluate_final_state(  # type: ignore[override]
         self, state: TicTacToeState
-    ) -> int:
+    ) -> Outcome:
         def rows_filled(player: CellState) -> bool:
             return any(all(p == player for p in state.grid[y]) for y in range(3))
 
