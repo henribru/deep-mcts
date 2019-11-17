@@ -119,21 +119,6 @@ class GameNet(ABC, Generic[_S, _A]):
         values = torch.tanh(values)
         assert probabilities.shape[0] == states.shape[0]
         assert values.shape == (states.shape[0], 1)
-        # shape = output.shape
-        # output = F.softmax(output.reshape((shape[0], -1)), dim=1).reshape(shape)
-        # assert torch.allclose(
-        #     torch.sum(output, dim=tuple(range(1, output.dim()))), torch.Tensor([1.0])
-        # )
-        # assert output.shape == shape
-        #  output = self.mask_illegal_moves(states, output)
-        #  assert output.shape == shape
-        #  output = output / torch.sum(
-        #      output, dim=tuple(range(1, output.dim())), keepdim=True
-        #  )
-        #  assert output.shape == shape
-        #  assert torch.allclose(
-        #      torch.sum(output, dim=tuple(range(1, output.dim()))), torch.Tensor([1.0])
-        #  )
         assert probabilities.shape == probability_targets.shape
         assert values.shape == value_targets.shape
         policy_loss = self.policy_criterion(  # type: ignore[misc, call-arg]
