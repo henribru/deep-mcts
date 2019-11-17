@@ -52,6 +52,7 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
     def _mask_illegal_moves(
         self, states: Sequence[HexState], output: torch.Tensor
     ) -> torch.Tensor:
+        # Since we flip the board for the second player, we also need to flip the mask
         states = torch.stack(
             [
                 torch.tensor(state.grid)
@@ -68,7 +69,7 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
         assert result.shape == output.shape
         return result
 
-    # Since we flip the board for player 0, we need to flip it back
+    # Since we flip the board for the second player, we need to flip it back
     def forward(self, state: HexState) -> Tuple[float, torch.Tensor]:
         value, action_probabilities = super().forward(state)
         if state.player == Player.SECOND:
@@ -129,7 +130,7 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
         # We want everything to be from the perspective of the current player.
         # We also want a consistent orientation, the current player's goal
         # should always be connecting north-south. This means we need to flip
-        # the board for player 0.
+        # the board for the second player.
         grids = torch.stack(
             [
                 torch.tensor(state.grid)
@@ -165,7 +166,7 @@ class ConvolutionalHexNet(GameNet[HexState, HexAction]):
             for action, probability in distribution.items():
                 x, y = action.coordinate
                 targets[i][y][x] = probability
-            # Since we flip the board for player 0, we also need to flip the targets
+            # Since we flip the board for the second player, we also need to flip the targets
             if state.player == Player.SECOND:
                 targets[i] = targets[i].t()
         assert targets.shape == (len(distributions), self.grid_size, self.grid_size)
