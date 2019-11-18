@@ -2,7 +2,7 @@ import queue
 import random
 import time
 from functools import lru_cache
-from typing import Iterable, Tuple, Optional, TypeVar, Callable, Dict, List
+from typing import Iterable, Tuple, Optional, TypeVar, Callable, Dict, List, cast
 from pathlib import Path
 from dataclasses import dataclass
 
@@ -76,8 +76,9 @@ def _train(
     game_net.save(f"{config.save_dir}/anet-0.pth")
     multiprocessing.set_start_method("spawn")
     self_play_game_net = game_net.copy().to(config.self_play_device)
+    last_trained_iteration = torch.tensor([-1])
     self_playing_context, games_queue = spawn_self_play_example_creators(
-        self_play_game_net, config,
+        self_play_game_net, last_trained_iteration, config,
     )
     previous_game_net = game_net.copy().to(config.train_device)
     training_iterations = 0
@@ -104,6 +105,7 @@ def _train(
 
         if (training_iterations + 1) % config.transfer_interval == 0:
             self_play_game_net.load_state_dict(game_net.net.state_dict())
+            last_trained_iteration[0] = training_iterations
 
         if (
             config.save_interval != 0
@@ -135,12 +137,14 @@ def _train(
 
 
 def spawn_self_play_example_creators(
-    game_net: GameNet[_S, _A], config: TrainingConfiguration,
+    game_net: GameNet[_S, _A],
+    last_trained_iteration: torch.Tensor,
+    config: TrainingConfiguration,
 ) -> Tuple[multiprocessing.SpawnContext, "multiprocessing.Queue[SelfPlayGame[_S, _A]]"]:
     games_queue: "multiprocessing.Queue[SelfPlayGame[_S, _A]]" = multiprocessing.Queue()
     context = multiprocessing.spawn(
         create_self_play_examples,
-        (game_net, config, games_queue),
+        (game_net, last_trained_iteration, config, games_queue),
         nprocs=config.nprocs,
         join=False,
     )
@@ -150,16 +154,30 @@ def spawn_self_play_example_creators(
 def create_self_play_examples(
     process_number: int,
     game_net: GameNet[_S, _A],
+    last_trained_iteration: torch.Tensor,
     config: TrainingConfiguration,
     games_queue: "multiprocessing.Queue[SelfPlayGame[_S, _A]]",
 ) -> None:
     game_manager = game_net.manager
+    last_cached_iteration = 0
+    # Use a uniform evaluator as the starting point
+    def uniform_state_evaluator(state: _S) -> Tuple[float, Dict[_A, float]]:
+        legal_actions = game_manager.legal_actions(state)
+        return 0.5, {action: 1 / len(legal_actions) for action in legal_actions}
+
+    state_evaluator: Callable[[_S], Tuple[float, Dict[_A, float]]] = uniform_state_evaluator
     for i in range(config.num_games):
+        # Recreate the cache if the network has been trained since
+        # we last created the cache
+        last_trained_iteration_value = cast(int, last_trained_iteration.item())
+        if last_trained_iteration_value > last_cached_iteration:
+            state_evaluator = cached_state_evaluator(game_net)
+            last_cached_iteration = last_trained_iteration_value
         mcts = MCTS(
             game_manager,
             config.num_simulations,
             config.rollout_policy,
-            cached_state_evaluator(game_net),
+            state_evaluator,
             config.sample_move_cutoff,
             config.dirichlet_alpha,
             config.dirichlet_factor,
