@@ -1,30 +1,22 @@
-import os.path
 import re
 import string
-from typing import Mapping
 import sys
 
+from deep_mcts.game import Action
 from deep_mcts.gtp_interface import GTPInterface
 from deep_mcts.othello.convolutionalnet import ConvolutionalOthelloNet
-from deep_mcts.othello.game import (
-    OthelloAction,
-    OthelloMove,
-    OthelloPass,
-    OthelloManager,
-    OthelloState,
-)
-from deep_mcts.othello.game import othello_probabilities_grid
+from deep_mcts.othello.game import OthelloState
 
 
-class OthelloGTPInterface(GTPInterface[OthelloState, OthelloAction]):
+class OthelloGTPInterface(GTPInterface[OthelloState]):
     def __init__(self, board_size: int = 6) -> None:
         super().__init__(board_size)
 
     @staticmethod
-    def parse_move(move: str, board_size: int) -> OthelloAction:
+    def parse_move(move: str, board_size: int) -> Action:
         move = move.lower()
         if move == "pass":
-            return OthelloPass()
+            return board_size ** 2
         match = re.match(r"([a-z])(\d{1,2})", move)
         if match is None:
             raise ValueError("invalid move")
@@ -33,13 +25,13 @@ class OthelloGTPInterface(GTPInterface[OthelloState, OthelloAction]):
         y = int(y) - 1
         if x >= board_size or not 0 <= y < board_size:
             raise ValueError("invalid move")
-        return OthelloMove((x, y))
+        return x + y * board_size
 
     @staticmethod
-    def format_move(move: OthelloAction) -> str:
-        if isinstance(move, OthelloPass):
+    def format_move(move: Action, board_size: int) -> str:
+        if move == board_size ** 2:
             return "pass"
-        x, y = move.coordinate
+        x, y = move % board_size, move // board_size
         return f"{string.ascii_lowercase[x]}{y + 1}"
 
     @staticmethod
@@ -47,12 +39,6 @@ class OthelloGTPInterface(GTPInterface[OthelloState, OthelloAction]):
         if len(sys.argv) == 3 and board_size == int(sys.argv[1]):
             return ConvolutionalOthelloNet.from_path(sys.argv[2], board_size)
         return ConvolutionalOthelloNet(board_size)
-
-    @staticmethod
-    def probabilities_grid(
-        action_probabilities: Mapping[OthelloAction, float], board_size: int
-    ) -> str:
-        return othello_probabilities_grid(action_probabilities, board_size)
 
 
 if __name__ == "__main__":

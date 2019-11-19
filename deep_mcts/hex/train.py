@@ -1,11 +1,9 @@
-from pathlib import Path
 import datetime
+from pathlib import Path
 
-import pandas as pd
-
-from deep_mcts.train import train, TrainingConfiguration
 from deep_mcts.hex.convolutionalnet import ConvolutionalHexNet
-from deep_mcts.hex.game import HexManager
+from deep_mcts.hex.game import HexManager, HexState
+from deep_mcts.train import train, TrainingConfiguration
 
 if __name__ == "__main__":
     grid_size = 11
@@ -19,7 +17,7 @@ if __name__ == "__main__":
     save_dir.mkdir()
     train(
         anet,
-        TrainingConfiguration(
+        TrainingConfiguration[HexState](
             num_games=5000,
             num_simulations=25,
             save_interval=10_000,

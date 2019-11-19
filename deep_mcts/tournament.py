@@ -3,7 +3,7 @@ import random
 from abc import ABC, abstractmethod
 from typing import Tuple, List, TypeVar, Sequence, Generic, TYPE_CHECKING
 
-from deep_mcts.game import State, Outcome
+from deep_mcts.game import State, Outcome, Action
 
 _S = TypeVar("_S", bound=State)
 _A = TypeVar("_A")
@@ -13,9 +13,9 @@ if TYPE_CHECKING:
     from deep_mcts.mcts import GameManager
 
 
-class Agent(ABC, Generic[_S, _A]):
+class Agent(ABC, Generic[_S]):
     @abstractmethod
-    def play(self, state: _S) -> _A:
+    def play(self, state: _S) -> Action:
         ...
 
     @abstractmethod
@@ -23,13 +23,13 @@ class Agent(ABC, Generic[_S, _A]):
         ...
 
 
-class RandomAgent(Agent[_S, _A]):
-    manager: "GameManager[_S, _A]"
+class RandomAgent(Agent[_S]):
+    manager: "GameManager[_S]"
 
-    def __init__(self, manager: "GameManager[_S, _A]"):
+    def __init__(self, manager: "GameManager[_S]"):
         self.manager = manager
 
-    def play(self, state: _S) -> _A:
+    def play(self, state: _S) -> Action:
         return random.choice(self.manager.legal_actions(state))
 
     def reset(self) -> None:
@@ -37,7 +37,7 @@ class RandomAgent(Agent[_S, _A]):
 
 
 def tournament(
-    agents: Sequence[Agent[_S, _A]], num_games: int, game_manager: "GameManager[_S, _A]"
+    agents: Sequence[Agent[_S]], num_games: int, game_manager: "GameManager[_S]"
 ) -> List[List[AgentComparison]]:
     results = [
         [((0.0, 0.0), (0.0, 0.0), (0.0, 0.0)) for _ in range(len(agents))]
@@ -51,9 +51,9 @@ def tournament(
 
 
 def compare_agents(
-    players: Tuple[Agent[_S, _A], Agent[_S, _A]],
+    players: Tuple[Agent[_S], Agent[_S]],
     num_games: int,
-    game_manager: "GameManager[_S, _A]",
+    game_manager: "GameManager[_S]",
 ) -> AgentComparison:
     first_player_wins = 0
     second_player_wins = 0
@@ -87,7 +87,7 @@ def compare_agents(
 
 
 def play(
-    players: Tuple[Agent[_S, _A], Agent[_S, _A]], game_manager: "GameManager[_S, _A]"
+    players: Tuple[Agent[_S], Agent[_S]], game_manager: "GameManager[_S]"
 ) -> Outcome:
     state = game_manager.initial_game_state()
     player = 0

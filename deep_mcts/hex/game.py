@@ -1,10 +1,10 @@
 import string
 from functools import lru_cache
-from typing import Tuple, List, Iterable, MutableSet, Optional, Set, Mapping
+from typing import Tuple, List, Iterable, MutableSet, Optional, Set, Sequence
 
 from dataclasses import dataclass
 
-from deep_mcts.game import GameManager, Player, State, CellState, Outcome
+from deep_mcts.game import GameManager, Player, State, CellState, Outcome, Action
 from deep_mcts.mcts import play_random_mcts
 
 
@@ -28,21 +28,11 @@ class HexState(State):
         return "\n".join(grid)
 
 
-@dataclass(unsafe_hash=True)
-class HexAction:
-    __slots__ = ["coordinate"]
-    coordinate: Tuple[int, int]
-
-    def __str__(self) -> str:
-        return str(self.coordinate)
-
-
-class HexManager(GameManager[HexState, HexAction]):
-    grid_size: int
-
+class HexManager(GameManager[HexState]):
     def __init__(self, grid_size: int) -> None:
         super().__init__()
         self.grid_size = grid_size
+        self.num_actions = grid_size ** 2
 
     def initial_game_state(self) -> HexState:
         return HexState(
@@ -55,10 +45,10 @@ class HexManager(GameManager[HexState, HexAction]):
 
     @lru_cache(maxsize=2 ** 20)
     def generate_child_state(  # type: ignore[override]
-        self, state: HexState, action: HexAction
+        self, state: HexState, action: Action
     ) -> HexState:
         assert action in self.legal_actions(state)
-        x, y = action.coordinate
+        x, y = action % self.grid_size, action // self.grid_size
         return HexState(
             state.player.opposite(),
             tuple(
@@ -75,9 +65,9 @@ class HexManager(GameManager[HexState, HexAction]):
     @lru_cache(maxsize=2 ** 20)
     def legal_actions(  # type: ignore[override]
         self, state: HexState
-    ) -> List[HexAction]:
+    ) -> List[Action]:
         return [
-            HexAction((x, y))
+            x + y * self.grid_size
             for y in range(self.grid_size)
             for x in range(self.grid_size)
             if state.grid[y][x] == CellState.EMPTY
@@ -153,22 +143,19 @@ class HexManager(GameManager[HexState, HexAction]):
             ):
                 yield shifted_x, shifted_y
 
-
-def hex_probabilities_grid(
-    action_probabilities: Mapping[HexAction, float], grid_size: int
-) -> str:
-    board = [[0.0 for _ in range(grid_size)] for _ in range(grid_size)]
-    for action, probability in action_probabilities.items():
-        x, y = action.coordinate
-        board[y][x] = probability
-    grid = []
-    width = 4 * len(board) - 1 + 4
-    for i in range(len(board)):
-        tiles = " ".join(f"{x:.2f}" for x in board[i])
-        grid.append(
-            f"{' ' * (i if i < 9 else i - 1)}{i + 1} {tiles} {i + 1}".center(width)
-        )
-    return "\n".join(grid)
+    def probabilities_grid(self, action_probabilities: Sequence[float]) -> str:
+        board = [[0.0 for _ in range(self.grid_size)] for _ in range(self.grid_size)]
+        for action, probability in enumerate(action_probabilities):
+            x, y = action % self.grid_size, action // self.grid_size
+            board[y][x] = probability
+        grid = []
+        width = 4 * len(board) - 1 + 4
+        for i in range(len(board)):
+            tiles = " ".join(f"{x:.2f}" for x in board[i])
+            grid.append(
+                f"{' ' * (i if i < 9 else i - 1)}{i + 1} {tiles} {i + 1}".center(width)
+            )
+        return "\n".join(grid)
 
 
 if __name__ == "__main__":

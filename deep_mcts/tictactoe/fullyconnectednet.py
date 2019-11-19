@@ -1,7 +1,5 @@
-import random
-from typing import Tuple, Dict, Sequence, Mapping, TYPE_CHECKING, Type, Any, Optional
+from typing import Tuple, Sequence, Mapping, TYPE_CHECKING, Type, Any, Optional
 
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -12,7 +10,7 @@ from deep_mcts.game import Player, GameManager
 from deep_mcts.gamenet import GameNet
 from deep_mcts.tictactoe.game import (
     TicTacToeState,
-    TicTacToeAction,
+    Action,
     TicTacToeManager,
     CellState,
 )
@@ -43,12 +41,12 @@ class FullyConnectedTicTacToeModule(TensorPairModule):
         return value, policy
 
 
-class FullyConnectedTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
+class FullyConnectedTicTacToeNet(GameNet[TicTacToeState]):
     grid_size: int
 
     def __init__(
         self,
-        manager: Optional[GameManager[TicTacToeState, TicTacToeAction]] = None,
+        manager: Optional[GameManager[TicTacToeState]] = None,
         optimizer_cls: Type["torch.optim.optimizer.Optimizer"] = torch.optim.SGD,
         optimizer_args: Tuple[Any, ...] = (),
         optimizer_kwargs: Mapping[str, Any] = {
@@ -76,55 +74,6 @@ class FullyConnectedTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
         result = output * legal_moves
         assert result.shape == output.shape
         return result
-
-    def sampling_policy(self, state: TicTacToeState) -> TicTacToeAction:
-        _, action_probabilities = self.forward(state)
-        action_probabilities = action_probabilities[0, :]
-        assert action_probabilities.shape == (3 ** 2,)
-        action = np.random.choice(3 ** 2, p=action_probabilities)
-        x, y = action % 3, action // 3
-        return TicTacToeAction((x, y))
-
-    def greedy_policy(
-        self, state: TicTacToeState, epsilon: float = 0
-    ) -> TicTacToeAction:
-        if epsilon > 0:
-            p = random.random()
-            if p < epsilon:
-                return random.choice(self.manager.legal_actions(state))
-        _, action_probabilities = self.forward(state)
-        action_probabilities = action_probabilities[0, :]
-        assert action_probabilities.shape == (3 ** 2,)
-        action = torch.argmax(action_probabilities).item()
-        x, y = np.unravel_index(action, shape=(3, 3))
-        return TicTacToeAction((x, y))
-
-    def evaluate_state(
-        self, state: TicTacToeState
-    ) -> Tuple[float, Dict[TicTacToeAction, float]]:
-        value, probabilities = self.forward(state)
-        probabilities = probabilities[0, :]
-        assert probabilities.shape == (3 ** 2,)
-        actions = {
-            TicTacToeAction((x, y)): probabilities[y * 3 + x].item()
-            for y in range(3)
-            for x in range(3)
-        }
-        return value, actions
-
-    def state_to_tensor(self, state: TicTacToeState) -> torch.Tensor:
-        # grid = state.grid
-        # tensor = [0] * (3 ** 2 * 2 + 1)
-        # tensor[-1] = state.player
-        # for y in range(3):
-        #     for x in range(3):
-        #         # TODO: Make current player come first instead of always player 0?
-        #         tensor[y * 3 + x] = 1 if grid[y][x] == 0 else 0
-        #         tensor[3 ** 2 + y * 3 + x] = 1 if grid[y][x] == 1 else 0
-        # tensor = torch.tensor(tensor).reshape(1, -1)
-        # assert tensor.shape == (1, 2 * 3 ** 2 + 1)
-        # return tensor
-        return self.states_to_tensor([state])
 
     def states_to_tensor(self, states: Sequence[TicTacToeState]) -> torch.Tensor:
         players = torch.tensor([state.player for state in states]).reshape(
@@ -165,13 +114,9 @@ class FullyConnectedTicTacToeNet(GameNet[TicTacToeState, TicTacToeAction]):
     def distributions_to_tensor(
         self,
         states: Sequence[TicTacToeState],
-        distributions: Sequence[Mapping[TicTacToeAction, float]],
+        distributions: Sequence[Sequence[float]],
     ) -> torch.Tensor:
-        targets = torch.zeros(len(distributions), 3 ** 2).float()
-        for i, distribution in enumerate(distributions):
-            for action, probability in distribution.items():
-                x, y = action.coordinate
-                targets[i][y * 3 + x] = probability
+        targets = torch.tensor(distributions, dtype=torch.float32)
         assert targets.shape == (len(distributions), 3 ** 2)
         return targets
 

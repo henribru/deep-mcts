@@ -1,26 +1,23 @@
 import re
 import string
-from typing import Callable, Dict, List, Optional, Mapping
 import sys
+from typing import Callable, Dict, List, Optional
 
 from deep_mcts.gtp_interface import GTPInterface
 from deep_mcts.hex_with_swap.convolutionalnet import ConvolutionalHexWithSwapNet
 from deep_mcts.hex_with_swap.game import (
-    HexWithSwapAction,
-    HexAction,
-    HexSwap,
+    Action,
     HexWithSwapManager,
     HexState,
-    hex_with_swap_probabilities_grid,
 )
 from deep_mcts.mcts import MCTS
 
 
-class HexWithSwapGTPInterface(GTPInterface[HexState, HexWithSwapAction]):
+class HexWithSwapGTPInterface(GTPInterface[HexState]):
     commands: Dict[str, Callable[[List[str]], Optional[str]]]
     board_size: int
     game_manager: HexWithSwapManager
-    mcts: MCTS[HexState, HexWithSwapAction]
+    mcts: MCTS[HexState]
 
     def __init__(self, board_size: int = 5) -> None:
         super().__init__(board_size)
@@ -30,10 +27,10 @@ class HexWithSwapGTPInterface(GTPInterface[HexState, HexWithSwapAction]):
         pass
 
     @staticmethod
-    def parse_move(move: str, grid_size: int) -> HexWithSwapAction:
+    def parse_move(move: str, grid_size: int) -> Action:
         move = move.lower()
         if move == "swap":
-            return HexSwap()
+            return grid_size ** 2
         match = re.match(r"([a-z])(\d{1,2})", move)
         if match is None:
             raise ValueError("invalid move")
@@ -42,13 +39,13 @@ class HexWithSwapGTPInterface(GTPInterface[HexState, HexWithSwapAction]):
         y = int(y) - 1
         if x >= grid_size or not 0 <= y < grid_size:
             raise ValueError("invalid move")
-        return HexAction((x, y))
+        return x + y * grid_size
 
     @staticmethod
-    def format_move(move: HexWithSwapAction) -> str:
-        if isinstance(move, HexSwap):
+    def format_move(move: Action, grid_size: int) -> str:
+        if move == grid_size ** 2:
             return "swap"
-        x, y = move.coordinate
+        x, y = move % grid_size, move // grid_size
         return f"{string.ascii_lowercase[x]}{y + 1}"
 
     @staticmethod
@@ -56,12 +53,6 @@ class HexWithSwapGTPInterface(GTPInterface[HexState, HexWithSwapAction]):
         if board_size == int(sys.argv[1]):
             return ConvolutionalHexWithSwapNet.from_path(sys.argv[2], board_size)
         return ConvolutionalHexWithSwapNet(board_size)
-
-    @staticmethod
-    def probabilities_grid(
-        action_probabilities: Mapping[HexWithSwapAction, float], board_size: int
-    ) -> str:
-        return hex_with_swap_probabilities_grid(action_probabilities, board_size)
 
 
 if __name__ == "__main__":

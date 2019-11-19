@@ -1,11 +1,10 @@
-import random
 from functools import lru_cache
-from typing import Iterable, List, Tuple
+from typing import List, Tuple, Sequence
 
 from dataclasses import dataclass
 
-from deep_mcts.game import CellState, GameManager, Player, State, Outcome
-from deep_mcts.mcts import MCTS, play_random_mcts
+from deep_mcts.game import CellState, GameManager, Player, State, Outcome, Action
+from deep_mcts.mcts import play_random_mcts
 
 
 @dataclass(unsafe_hash=True)
@@ -22,13 +21,11 @@ class TicTacToeState(State):
         return "\n".join("".join(cell_to_str[c] for c in row) for row in self.grid)
 
 
-@dataclass(unsafe_hash=True)
-class TicTacToeAction:
-    __slots__ = ["coordinate"]
-    coordinate: Tuple[int, int]
+class TicTacToeManager(GameManager[TicTacToeState]):
+    def __init__(self) -> None:
+        self.num_actions = 9
+        self.grid_size = 9
 
-
-class TicTacToeManager(GameManager[TicTacToeState, TicTacToeAction]):
     def initial_game_state(self) -> TicTacToeState:
         return TicTacToeState(
             Player.FIRST,
@@ -37,10 +34,10 @@ class TicTacToeManager(GameManager[TicTacToeState, TicTacToeAction]):
 
     @lru_cache(maxsize=2 ** 20)
     def generate_child_state(  # type: ignore[override]
-        self, state: TicTacToeState, action: TicTacToeAction
+        self, state: TicTacToeState, action: Action
     ) -> TicTacToeState:
         assert action in self.legal_actions(state)
-        x, y = action.coordinate
+        x, y = action % 3, action // 3
         return TicTacToeState(
             state.player.opposite(),
             tuple(
@@ -57,9 +54,9 @@ class TicTacToeManager(GameManager[TicTacToeState, TicTacToeAction]):
     @lru_cache(maxsize=2 ** 20)
     def legal_actions(  # type: ignore[override]
         self, state: TicTacToeState
-    ) -> List[TicTacToeAction]:
+    ) -> List[Action]:
         return [
-            TicTacToeAction((x, y))
+            x + y * 3
             for y in range(3)
             for x in range(3)
             if state.grid[y][x] == CellState.EMPTY
@@ -99,6 +96,17 @@ class TicTacToeManager(GameManager[TicTacToeState, TicTacToeAction]):
             ):
                 return outcome
         return Outcome.DRAW
+
+    def probabilities_grid(self, action_probabilities: Sequence[float]) -> str:
+        board = [[0.0 for _ in range(3)] for _ in range(3)]
+        for action, probability in enumerate(action_probabilities):
+            x, y = action % self.grid_size, action // self.grid_size
+            board[y][x] = probability
+        grid = []
+        for row in board:
+            row_str = " ".join(f"{x:.2f}" for x in row)
+            grid.append(row_str)
+        return "\n".join(grid)
 
 
 if __name__ == "__main__":

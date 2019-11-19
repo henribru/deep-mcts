@@ -1,16 +1,15 @@
-import os.path
+import re
 import re
 import string
-from typing import Mapping, List
 import sys
+from typing import List
 
 from deep_mcts.gtp_interface import GTPInterface
 from deep_mcts.hex.convolutionalnet import ConvolutionalHexNet
-from deep_mcts.hex.game import HexAction, HexManager, HexState
-from deep_mcts.hex.game import hex_probabilities_grid
+from deep_mcts.hex.game import Action, HexState
 
 
-class HexGTPInterface(GTPInterface[HexState, HexAction]):
+class HexGTPInterface(GTPInterface[HexState]):
     def __init__(self, board_size: int = 5) -> None:
         super().__init__(board_size)
         self.commands["hexgui-analyze_commands"] = self.analyze_commands
@@ -19,7 +18,7 @@ class HexGTPInterface(GTPInterface[HexState, HexAction]):
         pass
 
     @staticmethod
-    def parse_move(move: str, grid_size: int) -> HexAction:
+    def parse_move(move: str, grid_size: int) -> Action:
         move = move.lower()
         match = re.match(r"([a-z])(\d{1,2})", move)
         if match is None:
@@ -29,11 +28,11 @@ class HexGTPInterface(GTPInterface[HexState, HexAction]):
         y = int(y) - 1
         if x >= grid_size or not 0 <= y < grid_size:
             raise ValueError("invalid move")
-        return HexAction((x, y))
+        return x + y * grid_size
 
     @staticmethod
-    def format_move(move: HexAction) -> str:
-        x, y = move.coordinate
+    def format_move(move: Action, board_size: int) -> str:
+        x, y = move % board_size, move // board_size
         return f"{string.ascii_lowercase[x]}{y + 1}"
 
     @staticmethod
@@ -41,12 +40,6 @@ class HexGTPInterface(GTPInterface[HexState, HexAction]):
         if board_size == int(sys.argv[1]):
             return ConvolutionalHexNet.from_path(sys.argv[2], board_size)
         return ConvolutionalHexNet(board_size)
-
-    @staticmethod
-    def probabilities_grid(
-        action_probabilities: Mapping[HexAction, float], board_size: int
-    ) -> str:
-        return hex_probabilities_grid(action_probabilities, board_size)
 
 
 if __name__ == "__main__":

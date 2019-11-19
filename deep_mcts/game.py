@@ -1,7 +1,7 @@
 from abc import abstractmethod, ABC
 from enum import IntEnum, Enum
 from functools import lru_cache
-from typing import TypeVar, Dict, Generic, List
+from typing import TypeVar, Dict, Generic, List, Sequence
 
 from dataclasses import dataclass
 
@@ -57,10 +57,10 @@ class Outcome(Enum):
     DRAW = 0.5
 
 
-# We can't make this (or any other state or action)
+# We can't make this (or any other state)
 # frozen because frozen dataclasses with slots
 # can't be pickled and transferred between processes.
-# They should never be mutated though, so we enable
+# They should never be mutated though, so we can enable
 # hashing.
 @dataclass(unsafe_hash=True)
 class State:
@@ -69,29 +69,35 @@ class State:
 
 
 _S = TypeVar("_S", bound=State)
-_A = TypeVar("_A")
+Action = int
 
 
-class GameManager(ABC, Generic[_S, _A]):
+class GameManager(ABC, Generic[_S]):
+    num_actions: int
+    grid_size: int
+
     @abstractmethod
     def initial_game_state(self) -> _S:
         ...
 
     @lru_cache(maxsize=2 ** 20)
-    def generate_child_states(self, state: _S) -> Dict[_A, _S]:
+    def generate_child_states(self, state: _S) -> Dict[Action, _S]:
         child_states = {
             action: self.generate_child_state(state, action)
             for action in self.legal_actions(state)
         }
+        if __debug__:
+            for action in child_states:
+                assert action < self.num_actions
         assert set(child_states.keys()) == set(self.legal_actions(state))
         return child_states
 
     @abstractmethod
-    def generate_child_state(self, state: _S, action: _A) -> _S:
+    def generate_child_state(self, state: _S, action: Action) -> _S:
         ...
 
     @abstractmethod
-    def legal_actions(self, state: _S) -> List[_A]:
+    def legal_actions(self, state: _S) -> List[Action]:
         ...
 
     @abstractmethod
@@ -101,3 +107,11 @@ class GameManager(ABC, Generic[_S, _A]):
     @abstractmethod
     def evaluate_final_state(self, state: _S) -> Outcome:
         ...
+
+    @abstractmethod
+    def probabilities_grid(self, action_probabilities: Sequence[float]) -> str:
+        ...
+
+    def action_str(self, action: Action) -> str:
+        x, y = action % self.grid_size, action // self.grid_size
+        return str((x, y))

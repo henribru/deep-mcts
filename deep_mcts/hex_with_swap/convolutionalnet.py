@@ -1,4 +1,4 @@
-from typing import Tuple, Dict, Mapping, Sequence, Type, Any, Optional
+from typing import Tuple, Mapping, Sequence, Type, Any, Optional
 
 import torch
 import torch.optim
@@ -10,13 +10,11 @@ from deep_mcts.gamenet import GameNet
 from deep_mcts.hex_with_swap.game import (
     HexWithSwapManager,
     HexState,
-    HexWithSwapAction,
-    HexAction,
-    HexSwap,
+    Action,
 )
 
 
-class ConvolutionalHexWithSwapNet(GameNet[HexState, HexWithSwapAction]):
+class ConvolutionalHexWithSwapNet(GameNet[HexState]):
     grid_size: int
     num_residual: int
     channels: int
@@ -24,7 +22,7 @@ class ConvolutionalHexWithSwapNet(GameNet[HexState, HexWithSwapAction]):
     def __init__(
         self,
         grid_size: int,
-        manager: Optional[GameManager[HexState, HexWithSwapAction]] = None,
+        manager: Optional[GameManager[HexState]] = None,
         optimizer_cls: Type["torch.optim.optimizer.Optimizer"] = torch.optim.SGD,
         optimizer_args: Tuple[Any, ...] = (),
         optimizer_kwargs: Mapping[str, Any] = {
@@ -67,8 +65,9 @@ class ConvolutionalHexWithSwapNet(GameNet[HexState, HexWithSwapAction]):
             ]
         ).reshape((len(states), -1))
         legal_moves = (states == CellState.EMPTY).float()
+        swap_move = self.grid_size ** 2 + 1
         swaps = torch.tensor(
-            [[HexSwap() in self.manager.legal_actions(state)] for state in states_],
+            [[swap_move in self.manager.legal_actions(state)] for state in states_],
             dtype=torch.float32,
         )
         legal_moves = torch.cat([legal_moves, swaps], 1).to(self.device)
@@ -88,34 +87,6 @@ class ConvolutionalHexWithSwapNet(GameNet[HexState, HexWithSwapAction]):
                 .reshape((-1,))
             )
         return value, action_probabilities
-
-    def sampling_policy(self, state: HexState) -> HexWithSwapAction:
-        raise NotImplementedError
-
-    def greedy_policy(self, state: HexState, epsilon: float = 0) -> HexWithSwapAction:
-        raise NotImplementedError
-
-    def evaluate_state(
-        self, state: HexState
-    ) -> Tuple[float, Dict[HexWithSwapAction, float]]:
-        value, probabilities = self.forward(state)
-        actions: Dict[HexWithSwapAction, float] = {
-            HexAction((x, y)): probabilities[0, y * self.grid_size + x].item()
-            for y in range(self.grid_size)
-            for x in range(self.grid_size)
-        }
-        actions[HexSwap()] = probabilities[0, -1].item()
-        if __debug__:
-            legal_actions = set(self.manager.legal_actions(state))
-            assert all(
-                action in legal_actions
-                for action, probability in actions.items()
-                if probability != 0
-            )
-        return value, actions
-
-    def state_to_tensor(self, state: HexState) -> torch.Tensor:
-        return self.states_to_tensor([state])
 
     def states_to_tensor(self, states: Sequence[HexState]) -> torch.Tensor:
         players = torch.stack(
@@ -152,32 +123,17 @@ class ConvolutionalHexWithSwapNet(GameNet[HexState, HexWithSwapAction]):
         return tensor
 
     def distributions_to_tensor(
-        self,
-        states: Sequence[HexState],
-        distributions: Sequence[Mapping[HexWithSwapAction, float]],
+        self, states: Sequence[HexState], distributions: Sequence[Sequence[float]],
     ) -> torch.Tensor:
-        targets = torch.zeros(
-            len(distributions), self.grid_size * self.grid_size + 1
-        ).float()
-        for i, (state, distribution) in enumerate(zip(states, distributions)):
-            for action, probability in distribution.items():
-                if isinstance(action, HexSwap):
-                    targets[i][-1] = probability
-                else:
-                    x, y = action.coordinate
-                    targets[i][y * self.grid_size + x] = probability
-            # Since we flip the board for the second player, we also need to flip the targets
-            if state.player == Player.SECOND:
-                targets[i, :-1] = (
-                    targets[i, :-1]
-                    .reshape((self.grid_size, self.grid_size))
-                    .t()
-                    .reshape((-1,))
-                )
-        assert targets.shape == (
-            len(distributions),
-            self.grid_size * self.grid_size + 1,
+        targets = torch.tensor(distributions, dtype=torch.float32)
+        second_player_states = [state.player == Player.SECOND for state in states]
+        targets[second_player_states, :-1] = (
+            targets[second_player_states, :-1]
+            .reshape((self.grid_size, self.grid_size))
+            .t()
+            .reshape((-1,))
         )
+        assert targets.shape == (len(distributions), self.grid_size ** 2 + 1,)
         return targets
 
     def copy(self) -> "ConvolutionalHexWithSwapNet":

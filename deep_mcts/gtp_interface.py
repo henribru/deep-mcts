@@ -1,24 +1,34 @@
 import os.path
 import sys
 from abc import ABC, abstractmethod
-from typing import Callable, Dict, List, NoReturn, Optional, TypeVar, Generic, Mapping
+from typing import (
+    Callable,
+    Dict,
+    List,
+    NoReturn,
+    Optional,
+    TypeVar,
+    Generic,
+)
 
 import dataclasses
+import numpy as np
 import pexpect
+import torch
 
-from deep_mcts.game import Player, State, GameManager
-from deep_mcts.gamenet import GameNet, DEVICE
+from deep_mcts.game import Player, State, GameManager, Action
+from deep_mcts.gamenet import GameNet
 from deep_mcts.mcts import MCTS, Node
 from deep_mcts.tournament import Agent
+from deep_mcts.train import cached_state_evaluator
 
 _S = TypeVar("_S", bound=State)
-_A = TypeVar("_A")
 
 
-class GTPInterface(ABC, Generic[_S, _A]):
+class GTPInterface(ABC, Generic[_S]):
     commands: Dict[str, Callable[[List[str]], Optional[str]]]
-    game_manager: GameManager[_S, _A]
-    mcts: MCTS[_S, _A]
+    game_manager: GameManager[_S]
+    mcts: MCTS[_S]
     board_size: int
 
     def __init__(self, board_size: int) -> None:
@@ -38,13 +48,13 @@ class GTPInterface(ABC, Generic[_S, _A]):
             "result": self.result,
         }
         self.board_size = board_size
-        self.net = self.get_game_net(board_size).to(DEVICE)
+        self.net = self.get_game_net(board_size).to(torch.device("cuda:1"))
         self.game_manager = self.net.manager
         self.mcts = MCTS(
             self.game_manager,
             num_simulations=100,
             rollout_policy=None,
-            state_evaluator=self.net.evaluate_state,
+            state_evaluator=cached_state_evaluator(self.net),
         )
 
     def run_command(self, command: str) -> Optional[str]:
@@ -96,7 +106,7 @@ class GTPInterface(ABC, Generic[_S, _A]):
             self.game_manager,
             num_simulations=100,
             rollout_policy=None,
-            state_evaluator=self.net.evaluate_state,
+            state_evaluator=cached_state_evaluator(self.net),
         )
 
     def play(self, args: List[str]) -> None:
@@ -132,20 +142,18 @@ class GTPInterface(ABC, Generic[_S, _A]):
                 dataclasses.replace(self.mcts.root.state, player=player)
             )
         action_probabilities = self.mcts.step()
-        value, net_action_probabilities = self.net.evaluate_state(self.mcts.root.state)
+        value, net_action_probabilities = self.net.forward(self.mcts.root.state)
         print(value, file=sys.stderr)
         print(
-            self.probabilities_grid(net_action_probabilities, self.board_size),
-            file=sys.stderr,
+            self.game_manager.probabilities_grid(net_action_probabilities), file=sys.stderr,  # type: ignore
         )
         print(file=sys.stderr)
         print(
-            self.probabilities_grid(action_probabilities, self.board_size),
-            file=sys.stderr,
+            self.game_manager.probabilities_grid(action_probabilities), file=sys.stderr,
         )
-        action = max(action_probabilities.keys(), key=lambda a: action_probabilities[a])
+        action = np.argmax(action_probabilities)
         self.mcts.root = self.mcts.root.children[action]
-        return self.format_move(action)
+        return self.format_move(action, self.board_size)
 
     def showboard(self, args: List[str]) -> str:
         return f"\n{self.mcts.root.state}"
@@ -166,7 +174,7 @@ class GTPInterface(ABC, Generic[_S, _A]):
 
     @staticmethod
     @abstractmethod
-    def parse_move(move: str, board_size: int) -> _A:
+    def parse_move(move: str, board_size: int) -> Action:
         ...
 
     @staticmethod
@@ -175,19 +183,12 @@ class GTPInterface(ABC, Generic[_S, _A]):
 
     @staticmethod
     @abstractmethod
-    def format_move(move: _A) -> str:
+    def format_move(move: Action, board_size: int) -> str:
         ...
 
     @staticmethod
     @abstractmethod
-    def get_game_net(board_size: int) -> GameNet[_S, _A]:
-        ...
-
-    @staticmethod
-    @abstractmethod
-    def probabilities_grid(
-        action_probabilities: Mapping[_A, float], board_size: int
-    ) -> str:
+    def get_game_net(board_size: int) -> GameNet[_S]:
         ...
 
     def start(self) -> None:
@@ -206,8 +207,8 @@ class GTPInterface(ABC, Generic[_S, _A]):
                     print(f"= {result}\n")
 
 
-class GTPAgent(Agent[_S, _A]):
-    def __init__(self, manager: GameManager[_S, _A], grid_size: int) -> None:
+class GTPAgent(Agent[_S]):
+    def __init__(self, manager: GameManager[_S], grid_size: int) -> None:
         self.process = pexpect.spawn(
             sys.executable,
             [os.path.dirname(__file__)],
@@ -220,7 +221,7 @@ class GTPAgent(Agent[_S, _A]):
         self.state = self.game_manager.initial_game_state()
         self.grid_size = grid_size
 
-    def play(self, state: _S) -> _A:
+    def play(self, state: _S) -> Action:
         if self.state != state:
             action = next(
                 action
@@ -229,7 +230,7 @@ class GTPAgent(Agent[_S, _A]):
                 ).items()
                 if child_state == state
             )
-            move = GTPInterface.format_move(action)
+            move = GTPInterface.format_move(action, self.grid_size)
             self.process.sendline(
                 f"play {GTPInterface.format_player(self.state.player)} {move}"
             )

@@ -1,10 +1,9 @@
-from pathlib import Path
 import datetime
+from pathlib import Path
 
-from deep_mcts.train import train, TrainingConfiguration
 from deep_mcts.tictactoe.convolutionalnet import ConvolutionalTicTacToeNet
-from deep_mcts.tictactoe.game import TicTacToeManager
-
+from deep_mcts.tictactoe.game import TicTacToeManager, TicTacToeState
+from deep_mcts.train import train, TrainingConfiguration
 
 if __name__ == "__main__":
     manager = TicTacToeManager()
@@ -17,7 +16,7 @@ if __name__ == "__main__":
     save_dir.mkdir()
     train(
         anet,
-        TrainingConfiguration(
+        TrainingConfiguration[TicTacToeState](
             num_games=5000,
             num_simulations=25,
             save_interval=10_000,

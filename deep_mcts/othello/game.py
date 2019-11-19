@@ -1,12 +1,12 @@
 import itertools
 import string
 from functools import lru_cache
-from typing import Iterator, List, Tuple, Union, Set, Mapping
+from typing import Iterator, List, Tuple, Set, Sequence
 
 import dataclasses
 from dataclasses import dataclass
 
-from deep_mcts.game import CellState, GameManager, Outcome, Player, State
+from deep_mcts.game import CellState, GameManager, Outcome, Action, Player, State
 from deep_mcts.mcts import play_random_mcts
 
 
@@ -28,13 +28,35 @@ class OthelloState(State):
         return "\n".join(grid)
 
 
-@dataclass(unsafe_hash=True)
-class OthelloMove:
-    __slots__ = ["coordinate"]
-    coordinate: Tuple[int, int]
+class OthelloManager(GameManager[OthelloState]):
+    pass_move: Action
 
-    def generate_child_state(self, state: OthelloState) -> OthelloState:
-        x, y = self.coordinate
+    def __init__(self, grid_size: int) -> None:
+        super().__init__()
+        self.grid_size = grid_size
+        self.num_actions = grid_size ** 2 + 1
+        self.pass_move = grid_size ** 2
+
+    def initial_game_state(self) -> OthelloState:
+        board = [
+            [CellState.EMPTY for _ in range(self.grid_size)]
+            for _ in range(self.grid_size)
+        ]
+        x, y = self.grid_size // 2, self.grid_size // 2
+        board[y][x] = CellState.SECOND_PLAYER
+        board[y][x - 1] = CellState.FIRST_PLAYER
+        board[y - 1][x] = CellState.FIRST_PLAYER
+        board[y - 1][x - 1] = CellState.SECOND_PLAYER
+        return OthelloState(Player.FIRST, tuple(tuple(row) for row in board))
+
+    @lru_cache(maxsize=2 ** 20)
+    def generate_child_state(  # type: ignore[override]
+        self, state: OthelloState, action: Action
+    ) -> OthelloState:
+        assert action in self.legal_actions(state)
+        if action == self.pass_move:
+            return dataclasses.replace(state, player=state.player.opposite())
+        x, y = action % self.grid_size, action // self.grid_size
         grid = [[cell for cell in row] for row in state.grid]
         grid[y][x] = CellState(state.player)
         opposite_player = state.player.opposite()
@@ -61,53 +83,11 @@ class OthelloMove:
                     grid[opposite_y][opposite_x] = CellState(state.player)
         return OthelloState(opposite_player, tuple(tuple(row) for row in grid))
 
-    def __str__(self) -> str:
-        return str(self.coordinate)
-
-
-@dataclass(unsafe_hash=True)
-class OthelloPass:
-    def generate_child_state(self, state: OthelloState) -> OthelloState:
-        return dataclasses.replace(state, player=state.player.opposite())
-
-    def __str__(self) -> str:
-        return "pass"
-
-
-OthelloAction = Union[OthelloMove, OthelloPass]
-
-
-class OthelloManager(GameManager[OthelloState, OthelloAction]):
-    grid_size: int
-
-    def __init__(self, grid_size: int) -> None:
-        super().__init__()
-        self.grid_size = grid_size
-
-    def initial_game_state(self) -> OthelloState:
-        board = [
-            [CellState.EMPTY for _ in range(self.grid_size)]
-            for _ in range(self.grid_size)
-        ]
-        x, y = self.grid_size // 2, self.grid_size // 2
-        board[y][x] = CellState.SECOND_PLAYER
-        board[y][x - 1] = CellState.FIRST_PLAYER
-        board[y - 1][x] = CellState.FIRST_PLAYER
-        board[y - 1][x - 1] = CellState.SECOND_PLAYER
-        return OthelloState(Player.FIRST, tuple(tuple(row) for row in board))
-
-    @lru_cache(maxsize=2 ** 20)
-    def generate_child_state(  # type: ignore[override]
-        self, state: OthelloState, action: OthelloAction
-    ) -> OthelloState:
-        assert action in self.legal_actions(state)
-        return action.generate_child_state(state)
-
     @lru_cache(maxsize=2 ** 20)
     def legal_actions(  # type: ignore[override]
         self, state: OthelloState
-    ) -> List[OthelloAction]:
-        actions: Set[OthelloAction] = set()
+    ) -> List[Action]:
+        actions: Set[Action] = set()
         opposite_player = state.player.opposite()
         for x, y in player_positions(state):
             shifts = itertools.product([0, 1, -1], repeat=2)
@@ -132,16 +112,18 @@ class OthelloManager(GameManager[OthelloState, OthelloAction]):
                     and (0 <= shifted_y < self.grid_size)
                     and state.grid[shifted_y][shifted_x] == CellState.EMPTY
                 ):
-                    actions.add(OthelloMove((shifted_x, shifted_y)))
+                    action = shifted_y * self.grid_size + shifted_x
+                    assert action < self.num_actions
+                    actions.add(action)
         if not actions:
-            actions.add(OthelloPass())
+            actions.add(self.pass_move)
         return list(actions)
 
     @lru_cache(maxsize=2 ** 20)
     def is_final_state(self, state: OthelloState) -> bool:  # type: ignore[override]
-        return self.legal_actions(state) == [OthelloPass()] and self.legal_actions(
-            self.generate_child_state(state, OthelloPass())
-        ) == [OthelloPass()]
+        return self.legal_actions(state) == [self.pass_move] and self.legal_actions(
+            self.generate_child_state(state, self.pass_move)
+        ) == [self.pass_move]
 
     @lru_cache(maxsize=2 ** 20)
     def evaluate_final_state(  # type: ignore[override]
@@ -160,30 +142,29 @@ class OthelloManager(GameManager[OthelloState, OthelloAction]):
         else:
             return Outcome.DRAW
 
+    def probabilities_grid(self, action_probabilities: Sequence[float]) -> str:
+        board = [[0.0 for _ in range(self.grid_size)] for _ in range(self.grid_size)]
+        for action, probability in enumerate(action_probabilities[:-1]):
+            x, y = action % self.grid_size, action // self.grid_size
+            board[y][x] = probability
+        grid = []
+        for i, row in enumerate(board, 1):
+            row_str = " ".join(f"{x:.2f}" for x in row)
+            grid.append(row_str)
+        grid.append(f"pass: {action_probabilities[self.pass_move]}")
+        return "\n".join(grid)
+
+    def action_str(self, action: Action) -> str:
+        if action == self.pass_move:
+            return "pass"
+        return super().action_str(action)
+
 
 def player_positions(state: OthelloState) -> Iterator[Tuple[int, int]]:
     for y, row in enumerate(state.grid):
         for x, cell in enumerate(row):
             if cell == CellState(state.player):
                 yield x, y
-
-
-def othello_probabilities_grid(
-    action_probabilities: Mapping[OthelloAction, float], grid_size: int
-) -> str:
-    board = [[0.0 for _ in range(grid_size)] for _ in range(grid_size)]
-    for action, probability in action_probabilities.items():
-        if not isinstance(action, OthelloPass):
-            x, y = action.coordinate
-            board[y][x] = probability
-    grid = []
-    for i, row in enumerate(board, 1):
-        row_str = " ".join(f"{x:.2f}" for x in row)
-        grid.append(row_str)
-    pass_ = OthelloPass()
-    if pass_ in action_probabilities:
-        grid.append(f"pass: {action_probabilities[pass_]}")
-    return "\n".join(grid)
 
 
 if __name__ == "__main__":

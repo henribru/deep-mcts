@@ -1,34 +1,45 @@
 import random
-import typing
 from abc import ABC
 from math import sqrt
-from typing import Callable, Dict, List, Tuple, Iterable, TypeVar, Generic, Optional
+from typing import (
+    Callable,
+    Dict,
+    List,
+    Tuple,
+    Iterable,
+    TypeVar,
+    Generic,
+    Optional,
+    Sequence,
+)
 
 import numpy as np
 
-from deep_mcts.game import GameManager, State, Player, Outcome
+from deep_mcts.game import GameManager, State, Player, Action
 from deep_mcts.tournament import Agent
 
 _S = TypeVar("_S", bound=State)
-_A = TypeVar("_A")
+StateEvaluator = Callable[[_S], Tuple[float, Sequence[float]]]
+RolloutPolicy = Callable[[_S], Action]
 
 
-class Node(Generic[_S, _A]):
+class Node(Generic[_S]):
     __slots__ = ["state", "children", "E", "N", "P"]
     state: _S
-    children: Dict[_A, "Node[_S, _A]"]
+    children: Dict[Action, "Node[_S]"]
     E: float
     N: int
     P: float
 
-    def __init__(self, state: _S) -> None:
+    def __init__(self, state: _S, P: float = -1.0) -> None:
         self.state = state
         self.children = {}
         self.E = 0
         self.N = 0
-        self.P = 1
+        self.P = P
 
-    def u(self, parent: "Node[_S, _A]") -> float:
+    def u(self, parent: "Node[_S]") -> float:
+        assert self.P != -1.0
         c = 1
         return c * self.P * sqrt(parent.N) / (1 + self.N)
 
@@ -41,22 +52,22 @@ class Node(Generic[_S, _A]):
         return self.E / self.N
 
 
-class MCTS(Generic[_S, _A]):
-    game_manager: GameManager[_S, _A]
-    root: Node[_S, _A]
+class MCTS(Generic[_S]):
+    game_manager: GameManager[_S]
+    root: Node[_S]
     num_simulations: int
-    rollout_policy: Optional[Callable[[_S], _A]]
-    state_evaluator: Optional[Callable[[_S], Tuple[float, Dict[_A, float]]]]
+    rollout_policy: Optional[RolloutPolicy[_S]]
+    state_evaluator: Optional[StateEvaluator[_S]]
     sample_move_cutoff: int
     dirichlet_alpha: float
     dirichlet_factor: float
 
     def __init__(
         self,
-        game_manager: GameManager[_S, _A],
+        game_manager: GameManager[_S],
         num_simulations: int,
-        rollout_policy: Optional[Callable[[_S], _A]],
-        state_evaluator: Optional[Callable[[_S], Tuple[float, Dict[_A, float]]]],
+        rollout_policy: Optional[RolloutPolicy[_S]],
+        state_evaluator: Optional[StateEvaluator[_S]],
         sample_move_cutoff: int = 0,
         dirichlet_alpha: float = 0.0,
         dirichlet_factor: float = 0.25,
@@ -71,7 +82,7 @@ class MCTS(Generic[_S, _A]):
         self.dirichlet_alpha = dirichlet_alpha
         self.dirichlet_factor = dirichlet_factor
 
-    def tree_search(self) -> List[Node[_S, _A]]:
+    def tree_search(self) -> List[Node[_S]]:
         path = [self.root]
         node = self.root
         while node.children:
@@ -82,24 +93,29 @@ class MCTS(Generic[_S, _A]):
             path.append(node)
         return path
 
-    def expand_node(self, node: Node[_S, _A]) -> float:
+    def expand_node(self, node: Node[_S]) -> float:
         assert (node.E, node.N) == (0.0, 0)
         child_states = self.game_manager.generate_child_states(node.state)
-        node.children = {
-            action: Node(child_state) for action, child_state in child_states.items()
-        }
+        probabilities: Sequence[float]
         if self.state_evaluator is None:
             value, probabilities = (
                 0.5,
-                {action: 1 / len(node.children) for action in node.children.keys()},
+                [
+                    1 / len(child_states) if action in child_states else 0.0
+                    for action in range(self.game_manager.num_actions)
+                ],
             )
         else:
             value, probabilities = self.state_evaluator(node.state)
-        for action, node in node.children.items():
-            node.P = probabilities[action]
+            assert len(probabilities) == self.game_manager.num_actions
+        node.children = {
+            action: Node(child_state, probabilities[action])
+            for action, child_state in child_states.items()
+        }
+
         return value
 
-    def rollout(self, node: Node[_S, _A]) -> float:
+    def rollout(self, node: Node[_S]) -> float:
         assert (node.E, node.N) == (0.0, 0)
         if self.rollout_policy is None:
             return 0.5
@@ -109,13 +125,13 @@ class MCTS(Generic[_S, _A]):
             state = self.game_manager.generate_child_state(state, action)
         return self.game_manager.evaluate_final_state(state).value  # type: ignore[no-any-return]
 
-    def backpropagate(self, path: Iterable[Node[_S, _A]], evaluation: float) -> None:
+    def backpropagate(self, path: Iterable[Node[_S]], evaluation: float) -> None:
         for node in path:
             node.N += 1
             node.E += evaluation
             assert 0.0 <= node.Q <= 1.0
 
-    def evaluate_leaf(self, leaf_node: Node[_S, _A]) -> float:
+    def evaluate_leaf(self, leaf_node: Node[_S]) -> float:
         if self.game_manager.is_final_state(leaf_node.state):
             return self.game_manager.evaluate_final_state(leaf_node.state).value  # type: ignore[no-any-return]
         value = self.expand_node(leaf_node)
@@ -127,27 +143,23 @@ class MCTS(Generic[_S, _A]):
         else:
             return (rollout_value + value) / 2
 
-    def self_play(self) -> Iterable[Tuple[_S, _S, _A, Dict[_A, float]]]:
+    def self_play(self) -> Iterable[Tuple[_S, _S, Action, Sequence[float]]]:
         i = 0
         while not self.game_manager.is_final_state(self.root.state):
             action_probabilities = self.step()
             if i < self.sample_move_cutoff:
-                action = list(action_probabilities.keys())[
-                    np.random.choice(
-                        len(action_probabilities), p=list(action_probabilities.values())
-                    )
-                ]
-            else:
-                action = max(
-                    action_probabilities.keys(), key=lambda a: action_probabilities[a]
+                action = np.random.choice(
+                    len(action_probabilities), p=action_probabilities
                 )
+            else:
+                action = np.argmax(action_probabilities)
             next_node = self.root.children[action]
             current_node = self.root
             self.root = next_node
             i += 1
             yield current_node.state, next_node.state, action, action_probabilities
 
-    def add_dirichlet_noise(self, node: Node[_S, _A]) -> None:
+    def add_dirichlet_noise(self, node: Node[_S]) -> None:
         if self.dirichlet_alpha == 0:
             return
         noise = np.random.dirichlet([self.dirichlet_alpha] * len(node.children))
@@ -156,7 +168,7 @@ class MCTS(Generic[_S, _A]):
                 child.P * (1 - self.dirichlet_factor) + noise[i] * self.dirichlet_factor
             )
 
-    def step(self) -> Dict[_A, float]:
+    def step(self) -> List[float]:
         if not self.root.children:
             self.expand_node(self.root)
             self.root.N += 1
@@ -172,23 +184,26 @@ class MCTS(Generic[_S, _A]):
                 else:
                     assert (leaf_node.N, leaf_node.E) == (1, evaluation)
         visit_sum = sum(node.N for node in self.root.children.values())
-        return {
-            action: node.N / visit_sum for action, node in self.root.children.items()
-        }
+        return [
+            self.root.children[action].N / visit_sum
+            if action in self.root.children
+            else 0.0
+            for action in range(self.game_manager.num_actions)
+        ]
 
     def reset(self) -> None:
         self.root = Node(self.game_manager.initial_game_state())
 
 
-class MCTSAgent(Agent[_S, _A], ABC):
-    mcts: MCTS[_S, _A]
+class MCTSAgent(Agent[_S], ABC):
+    mcts: MCTS[_S]
     epsilon: float
 
-    def __init__(self, mcts: MCTS[_S, _A], epsilon: float = 0.0) -> None:
+    def __init__(self, mcts: MCTS[_S], epsilon: float = 0.0) -> None:
         self.mcts = mcts
         self.epsilon = epsilon
 
-    def play(self, state: _S) -> _A:
+    def play(self, state: _S) -> Action:
         if not any(child.state == state for child in self.mcts.root.children.values()):
             assert len(self.mcts.root.children) == 0
         self.mcts.root = next(
@@ -200,19 +215,11 @@ class MCTSAgent(Agent[_S, _A], ABC):
             Node(state),
         )
         action_probabilities = self.mcts.step()
+        action: Action
         if self.epsilon > 0 and random.random() < self.epsilon:
-            action = list(action_probabilities.keys())[
-                typing.cast(
-                    int,
-                    np.random.choice(
-                        len(action_probabilities), p=list(action_probabilities.values())
-                    ),
-                )
-            ]
+            action = np.random.choice(len(action_probabilities), p=action_probabilities)
         else:
-            action = max(
-                action_probabilities.keys(), key=lambda a: action_probabilities[a]
-            )
+            action = np.argmax(action_probabilities)
         self.mcts.root = self.mcts.root.children[action]
         return action
 
@@ -220,7 +227,7 @@ class MCTSAgent(Agent[_S, _A], ABC):
         self.mcts.reset()
 
 
-def play_random_mcts(manager: GameManager[_S, _A], num_simulations: int) -> None:
+def play_random_mcts(manager: GameManager[_S], num_simulations: int) -> None:
     mcts = MCTS(
         manager,
         num_simulations,
@@ -230,7 +237,7 @@ def play_random_mcts(manager: GameManager[_S, _A], num_simulations: int) -> None
     for state, next_state, action, _ in mcts.self_play():
         print(state)
         print()
-        print(action)
+        print(manager.action_str(action))
         print()
     print(next_state)
     print(state.player)
