@@ -5,6 +5,7 @@ from functools import lru_cache
 from typing import Iterable, Tuple, Optional, TypeVar, Callable, Dict, List, cast
 from pathlib import Path
 from dataclasses import dataclass
+import textwrap
 
 import numpy as np
 import pandas as pd
@@ -84,6 +85,9 @@ def _train(
     training_iterations = 0
     training_games_count = 0
     training_examples_count = 0
+    policy_loss = torch.tensor([0.0], device=config.train_device)
+    value_loss = torch.tensor([0.0], device=config.train_device)
+    accuracy = torch.tensor([0.0], device=config.train_device)
     prev_evaluation_time = time.perf_counter()
     while not self_playing_context.join(0):
         new_games = get_new_games(
@@ -97,11 +101,19 @@ def _train(
         states, probability_targets, value_targets = sample_replay_buffer(
             replay_buffer, config.batch_size, config.train_device
         )
+
         if __debug__:
             with torch.autograd.detect_anomaly():
-                game_net.train(states, probability_targets, value_targets)
+                batch_policy_loss, batch_value_loss, batch_accuracy = game_net.train(
+                    states, probability_targets, value_targets
+                )
         else:
-            game_net.train(states, probability_targets, value_targets)
+            batch_policy_loss, batch_value_loss, batch_accuracy = game_net.train(
+                states, probability_targets, value_targets
+            )
+        policy_loss += batch_policy_loss
+        value_loss += batch_value_loss
+        accuracy += batch_accuracy
 
         if (training_iterations + 1) % config.transfer_interval == 0:
             self_play_game_net.load_state_dict(game_net.net.state_dict())
@@ -124,11 +136,24 @@ def _train(
                 game_net, previous_game_net, game_manager, config,
             )
             print(
-                f"{time.strftime('%H:%M:%S')} "
-                f"iterations: {training_iterations + 1} games: {training_games_count} "
-                f"examples: {training_examples_count} evaluation_duration: {time.perf_counter() - prev_evaluation_time:.2f} "
-                f"previous: {previous_evaluation} random MCTS: {random_mcts_evaluation} "
+                textwrap.dedent(
+                    f"""
+                    {time.strftime('%H:%M:%S')}
+                    iterations: {training_iterations + 1} 
+                    games: {training_games_count}
+                    examples: {training_examples_count} 
+                    evaluation_duration: {time.perf_counter() - prev_evaluation_time:.2f}
+                    previous: {previous_evaluation} 
+                    random MCTS: {random_mcts_evaluation}
+                    policy_loss: {policy_loss.item() / config.evaluation_interval:.2f}
+                    value_loss: {value_loss.item() / config.evaluation_interval:.2f}
+                    accuracy: {accuracy.item() / config.evaluation_interval:.2f}
+                    """
             )
+            )
+            policy_loss[0] = 0.0
+            value_loss[0] = 0.0
+            accuracy[0] = 0.0
             prev_evaluation_time = time.perf_counter()
             previous_game_net.load_state_dict(game_net.net.state_dict())
             yield training_iterations, random_mcts_evaluation, previous_evaluation
@@ -199,17 +224,17 @@ def create_self_play_examples(
         )
         if i % 100 == 0 and process_number == 0:
             print(f"{time.strftime('%H:%M:%S')} {i}")
-            cached_methods = [
-                "generate_child_state",
-                "generate_child_states",
-                "legal_actions",
-                "is_final_state",
-                "evaluate_final_state",
-            ]
-            for method in cached_methods:
-                cache_info = getattr(game_manager, method).cache_info()
-                hit_ratio = cache_info.hits / (cache_info.hits + cache_info.misses)
-                print(f"{method}: {hit_ratio * 100:.1f}%")
+            # cached_methods = [
+            #     "generate_child_state",
+            #     "generate_child_states",
+            #     "legal_actions",
+            #     "is_final_state",
+            #     "evaluate_final_state",
+            # ]
+            # for method in cached_methods:
+            #     cache_info = getattr(game_manager, method).cache_info()
+            #     hit_ratio = cache_info.hits / (cache_info.hits + cache_info.misses)
+            #     print(f"{method}: {hit_ratio * 100:.1f}%")
 
 
 def get_new_games(

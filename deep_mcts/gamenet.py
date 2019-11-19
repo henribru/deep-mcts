@@ -113,7 +113,7 @@ class GameNet(ABC, Generic[_S, _A]):
         states: torch.Tensor,
         probability_targets: torch.Tensor,
         value_targets: torch.Tensor,
-    ) -> None:
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         self.net.train()
         values, probabilities = self.net.forward(states.float())
         values = torch.tanh(values)
@@ -126,10 +126,12 @@ class GameNet(ABC, Generic[_S, _A]):
         )
         value_loss = self.value_criterion(values, value_targets)
         loss = policy_loss + value_loss
+        accuracy_ = accuracy(probabilities, probability_targets)
         assert loss.shape == ()
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
+        return policy_loss, value_loss, accuracy_
 
     def save(self, path: str) -> None:
         torch.save(self.net.state_dict(), path)
@@ -214,3 +216,11 @@ def cross_entropy(
         result = torch.sum(result)
         assert result.shape == ()
     return result
+
+def accuracy(predictions: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+    return torch.mean(
+        (
+            torch.argmax(predictions.reshape((predictions.shape[0], -1)), dim=1)
+            == torch.argmax(targets.reshape((targets.shape[0], -1)), dim=1)
+        ).float()
+    )
