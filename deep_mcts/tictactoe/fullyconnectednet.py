@@ -64,10 +64,10 @@ class FullyConnectedTicTacToeNet(GameNet[TicTacToeState]):
         )
 
     def _mask_illegal_moves(
-        self, states: Sequence[TicTacToeState], output: torch.Tensor
+        self, state: TicTacToeState, output: torch.Tensor
     ) -> torch.Tensor:
-        states = torch.tensor([state.grid for state in states]).reshape(-1, 9)
-        legal_moves = (states == CellState.EMPTY).to(
+        state = torch.tensor(state.grid).flatten()
+        legal_moves = (state == CellState.EMPTY).to(
             dtype=torch.float32, device=self.device
         )
         assert legal_moves.shape == output.shape
@@ -110,15 +110,6 @@ class FullyConnectedTicTacToeNet(GameNet[TicTacToeState]):
         # tensor = torch.as_tensor(grids, dtype=torch.float32, device=self.device)
         # assert tensor.shape == (len(grids), 2 * 3 ** 2 + 1)
         # return tensor
-
-    def distributions_to_tensor(
-        self,
-        states: Sequence[TicTacToeState],
-        distributions: Sequence[Sequence[float]],
-    ) -> torch.Tensor:
-        targets = torch.tensor(distributions, dtype=torch.float32)
-        assert targets.shape == (len(distributions), 3 ** 2)
-        return targets
 
     def copy(self) -> "FullyConnectedTicTacToeNet":
         net = FullyConnectedTicTacToeNet(

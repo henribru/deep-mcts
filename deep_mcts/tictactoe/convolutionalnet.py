@@ -45,10 +45,10 @@ class ConvolutionalTicTacToeNet(GameNet[TicTacToeState]):
         self.channels = channels
 
     def _mask_illegal_moves(
-        self, states: Sequence[TicTacToeState], output: torch.Tensor
+        self, state: TicTacToeState, output: torch.Tensor
     ) -> torch.Tensor:
-        states = torch.tensor([state.grid for state in states])
-        legal_moves = (states == CellState.EMPTY).to(
+        state = torch.tensor(state.grid).flatten()
+        legal_moves = (state == CellState.EMPTY).to(
             dtype=torch.float32, device=self.device
         )
         assert legal_moves.shape == output.shape

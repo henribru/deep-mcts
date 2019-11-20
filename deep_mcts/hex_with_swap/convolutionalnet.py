@@ -52,25 +52,21 @@ class ConvolutionalHexWithSwapNet(GameNet[HexState]):
         self.channels = channels
 
     def _mask_illegal_moves(
-        self, states: Sequence[HexState], output: torch.Tensor
+        self, state: HexState, output: torch.Tensor
     ) -> torch.Tensor:
-        states_ = states
+        state_ = state
         # Since we flip the board for the second player, we also need to flip the mask
-        states = torch.stack(
-            [
-                torch.tensor(state.grid)
-                if state.player == Player.FIRST
-                else torch.tensor(state.grid).t()
-                for state in states
-            ]
-        ).reshape((len(states), -1))
-        legal_moves = (states == CellState.EMPTY).float()
-        swap_move = self.grid_size ** 2 + 1
-        swaps = torch.tensor(
-            [[swap_move in self.manager.legal_actions(state)] for state in states_],
-            dtype=torch.float32,
+        state = (
+            torch.tensor(state.grid)
+            if state.player == Player.FIRST
+            else torch.tensor(state.grid).t()
+        ).flatten()
+        legal_moves = (state == CellState.EMPTY).float()
+        swap_move = self.grid_size ** 2
+        swap = torch.tensor(
+            [swap_move in self.manager.legal_actions(state_)], dtype=torch.float32
         )
-        legal_moves = torch.cat([legal_moves, swaps], 1).to(self.device)
+        legal_moves = torch.cat([legal_moves, swap], 0).to(self.device)
         assert legal_moves.shape == output.shape
         result = output * legal_moves
         assert result.shape == output.shape

@@ -70,31 +70,22 @@ class GameNet(ABC, Generic[_S]):
             value = -value
         # MCTS uses a range of [0, 1]
         value = (value + 1) / 2
-        shape = probabilities.shape
-        assert probabilities.shape == shape
-        probabilities = F.softmax(probabilities.reshape((1, -1)), dim=1).reshape(shape)
-        assert probabilities.shape == shape
-        probabilities = self._mask_illegal_moves([state], probabilities)
-        assert probabilities.shape == shape
-        probabilities = probabilities / torch.sum(
-            probabilities, dim=tuple(range(1, probabilities.dim())), keepdim=True
-        )
-        assert probabilities.shape == shape
+        probabilities = F.softmax(probabilities.flatten(), dim=0)
+        assert probabilities.shape == (self.manager.num_actions,)
+        probabilities = self._mask_illegal_moves(state, probabilities)
+        assert probabilities.shape == (self.manager.num_actions,)
+        probabilities = probabilities / torch.sum(probabilities)
+        assert probabilities.shape == (self.manager.num_actions,)
         assert torch.allclose(
-            torch.sum(probabilities, dim=tuple(range(1, probabilities.dim()))),
-            torch.tensor([1.0], device=self.device),
+            torch.sum(probabilities), torch.tensor([1.0], device=self.device),
         )
         value = value.item()
-        probabilities = probabilities.flatten().cpu().detach()
-        assert len(probabilities.shape) == 1
+        probabilities = probabilities.cpu().detach()
         return value, probabilities
 
-    def _mask_illegal_moves(
-        self, states: Sequence[_S], output: torch.Tensor
-    ) -> torch.Tensor:
-        legal_moves = torch.zeros(len(states), self.manager.num_actions)
-        for i, state in enumerate(states):
-            legal_moves[i, self.manager.legal_actions(state)] = 1.0
+    def _mask_illegal_moves(self, state: _S, output: torch.Tensor) -> torch.Tensor:
+        legal_moves = torch.zeros(self.manager.num_actions)
+        legal_moves[self.manager.legal_actions(state)] = 1.0
         assert legal_moves.shape == output.shape
         result = output * legal_moves.to(self.device)
         assert result.shape == output.shape
