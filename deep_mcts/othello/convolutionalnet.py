@@ -50,17 +50,6 @@ class ConvolutionalOthelloNet(GameNet[OthelloState]):
         self.num_residual = num_residual
         self.channels = channels
 
-    def _mask_illegal_moves(
-        self, states: Sequence[OthelloState], output: torch.Tensor
-    ) -> torch.Tensor:
-        legal_moves = torch.zeros(len(states), self.grid_size ** 2 + 1)
-        for i, state in enumerate(states):
-            legal_moves[i, self.manager.legal_actions(state)] = 1.0
-        assert legal_moves.shape == output.shape
-        result = output * legal_moves.to(self.device)
-        assert result.shape == output.shape
-        return result
-
     def states_to_tensor(self, states: Sequence[OthelloState]) -> torch.Tensor:
         players = torch.stack(
             [
@@ -84,13 +73,6 @@ class ConvolutionalOthelloNet(GameNet[OthelloState]):
         tensor = torch.stack([current_player, other_player, players], dim=1)
         assert tensor.shape == (len(states), 3, self.grid_size, self.grid_size)
         return tensor
-
-    def distributions_to_tensor(
-        self, states: Sequence[OthelloState], distributions: Sequence[Sequence[float]],
-    ) -> torch.Tensor:
-        targets = torch.tensor(distributions, dtype=torch.float32)
-        assert targets.shape == (len(distributions), self.grid_size ** 2 + 1)
-        return targets
 
     def copy(self) -> "ConvolutionalOthelloNet":
         net = ConvolutionalOthelloNet(

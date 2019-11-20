@@ -89,11 +89,16 @@ class GameNet(ABC, Generic[_S]):
         assert len(probabilities.shape) == 1
         return value, probabilities
 
-    @abstractmethod
     def _mask_illegal_moves(
         self, states: Sequence[_S], output: torch.Tensor
     ) -> torch.Tensor:
-        ...
+        legal_moves = torch.zeros(len(states), self.manager.num_actions)
+        for i, state in enumerate(states):
+            legal_moves[i, self.manager.legal_actions(state)] = 1.0
+        assert legal_moves.shape == output.shape
+        result = output * legal_moves.to(self.device)
+        assert result.shape == output.shape
+        return result
 
     def train(
         self,
@@ -130,11 +135,12 @@ class GameNet(ABC, Generic[_S]):
     def states_to_tensor(self, states: Sequence[_S]) -> torch.Tensor:
         ...
 
-    @abstractmethod
     def distributions_to_tensor(
         self, states: Sequence[_S], distributions: Sequence[Sequence[float]],
     ) -> torch.Tensor:
-        ...
+        targets = torch.tensor(distributions, dtype=torch.float32)
+        assert targets.shape == (len(distributions), self.manager.num_actions)
+        return targets
 
     @abstractmethod
     def copy(self: _T) -> _T:

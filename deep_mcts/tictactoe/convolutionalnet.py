@@ -77,15 +77,6 @@ class ConvolutionalTicTacToeNet(GameNet[TicTacToeState]):
         assert tensor.shape == (len(states), 3, 3, 3)
         return tensor
 
-    def distributions_to_tensor(
-        self,
-        states: Sequence[TicTacToeState],
-        distributions: Sequence[Sequence[float]],
-    ) -> torch.Tensor:
-        targets = torch.tensor(distributions, dtype=torch.float32)
-        assert targets.shape == (len(distributions), 3, 3)
-        return targets
-
     def copy(self) -> "ConvolutionalTicTacToeNet":
         net = ConvolutionalTicTacToeNet(
             self.manager,
