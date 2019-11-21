@@ -57,23 +57,21 @@ class ConvolutionalTicTacToeNet(GameNet[TicTacToeState]):
         return result
 
     def states_to_tensor(self, states: Sequence[TicTacToeState]) -> torch.Tensor:
-        players = torch.stack(
-            [torch.full((3, 3), fill_value=state.player) for state in states]
+        players, opposite_players, grids = zip(
+            *[(state.player, state.player.opposite(), state.grid) for state in states]
         )
+        players = torch.tensor(players).reshape(-1, 1, 1)
+        opposite_players = torch.tensor(opposite_players).reshape(-1, 1, 1)
+
+        player_grids = torch.full((len(states), 3, 3), fill_value=-1.0)
+        player_grids[:] = players
+
         # We want everything to be from the perspective of the current player.
-        grids = torch.tensor([state.grid for state in states])
-        current_player = (
-            grids
-            == torch.tensor([state.player for state in states]).reshape((-1, 1, 1))
-        ).float()
-        other_player = (
-            grids
-            == torch.tensor([state.player.opposite() for state in states]).reshape(
-                (-1, 1, 1)
-            )
-        ).float()
+        grids = torch.tensor(grids)
+        current_player = (grids == players).float()
+        other_player = (grids == opposite_players).float()
         #  assert np.all((first_player.sum(axis=1) - second_player.sum(axis=1)) <= 1)
-        tensor = torch.stack((current_player, other_player, players), dim=1)
+        tensor = torch.stack([current_player, other_player, player_grids], dim=1)
         assert tensor.shape == (len(states), 3, 3, 3)
         return tensor
 
