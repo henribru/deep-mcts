@@ -68,7 +68,11 @@ class ConvolutionalHexNet(GameNet[HexState]):
     def forward(self, state: HexState) -> Tuple[float, torch.Tensor]:
         value, action_probabilities = super().forward(state)
         if state.player == Player.SECOND:
-            action_probabilities = torch.transpose(action_probabilities, 1, 2)
+            action_probabilities = (
+                action_probabilities.reshape((self.grid_size, self.grid_size))
+                .t()
+                .flatten()
+            )
         return value, action_probabilities
 
     def states_to_tensor(self, states: Sequence[HexState]) -> torch.Tensor:
@@ -112,9 +116,9 @@ class ConvolutionalHexNet(GameNet[HexState]):
         second_player_states = [state.player == Player.SECOND for state in states]
         targets[second_player_states, :] = (
             targets[second_player_states, :]
-            .reshape((self.grid_size, self.grid_size))
-            .t()
-            .reshape((-1,))
+            .reshape((-1, self.grid_size, self.grid_size))
+            .transpose(1, 2)
+            .flatten(start_dim=1)
         )
         assert targets.shape == (len(distributions), self.grid_size ** 2,)
         return targets
