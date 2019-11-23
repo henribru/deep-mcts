@@ -114,35 +114,28 @@ class GTPInterface(ABC, Generic[_S]):
             raise ValueError("play takes 2 arguments")
         player = self.parse_player(args[0])
         action = self.parse_move(args[1], self.board_size)
-        legal_actions = self.game_manager.legal_actions(self.mcts.root.state)
-        if action not in legal_actions:
+        if action not in self.game_manager.legal_actions(self.mcts.state):
             raise ValueError("illegal move")
-        actual_player = self.mcts.root.state.player
+        actual_player = self.mcts.state.player
         if actual_player != player:
-            self.mcts.root = Node(
-                dataclasses.replace(self.mcts.root.state, player=player)
-            )
-        state = self.game_manager.generate_child_state(self.mcts.root.state, action)
-        self.mcts.root = next(
-            (
-                child
-                for child in self.mcts.root.children.values()
-                if child.state == state
-            ),
-            Node(state),
+            self.mcts.state = dataclasses.replace(self.mcts.state, player=player)
+        if __debug__ and action not in self.mcts.root.children:
+            assert len(self.mcts.root.children) == 0
+        self.mcts.root = self.mcts.root.children.get(action, Node())
+        self.mcts.state = self.game_manager.generate_child_state(
+            self.mcts.state, action
         )
 
     def genmove(self, args: List[str]) -> str:
         if len(args) != 1:
             raise ValueError("play takes 1 argument")
         player = self.parse_player(args[0])
-        actual_player = self.mcts.root.state.player
+        actual_player = self.mcts.state.player
         if actual_player != player:
-            self.mcts.root = Node(
-                dataclasses.replace(self.mcts.root.state, player=player)
-            )
+            self.mcts.state = dataclasses.replace(self.mcts.state, player=player)
+
         action_probabilities = self.mcts.step()
-        value, net_action_probabilities = self.net.forward(self.mcts.root.state)
+        value, net_action_probabilities = self.net.forward(self.mcts.state)
         print(value, file=sys.stderr)
         print(
             self.game_manager.probabilities_grid(net_action_probabilities), file=sys.stderr,  # type: ignore
@@ -153,13 +146,16 @@ class GTPInterface(ABC, Generic[_S]):
         )
         action = np.argmax(action_probabilities)
         self.mcts.root = self.mcts.root.children[action]
+        self.mcts.state = self.mcts.game_manager.generate_child_state(
+            self.mcts.state, action
+        )
         return self.format_move(action, self.board_size)
 
     def showboard(self, args: List[str]) -> str:
-        return f"\n{self.mcts.root.state}"
+        return f"\n{self.mcts.state}"
 
     def result(self, args: List[str]) -> str:
-        return str(self.game_manager.evaluate_final_state(self.mcts.root.state))
+        return str(self.game_manager.evaluate_final_state(self.mcts.state))
 
     @staticmethod
     def parse_player(player: str) -> int:
@@ -225,10 +221,8 @@ class GTPAgent(Agent[_S]):
         if self.state != state:
             action = next(
                 action
-                for action, child_state in self.game_manager.generate_child_states(
-                    self.state
-                ).items()
-                if child_state == state
+                for action in self.game_manager.legal_actions(self.state)
+                if self.game_manager.generate_child_state(self.state, action) == state
             )
             move = GTPInterface.format_move(action, self.grid_size)
             self.process.sendline(

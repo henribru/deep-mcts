@@ -80,18 +80,6 @@ class GameManager(ABC, Generic[_S]):
     def initial_game_state(self) -> _S:
         ...
 
-    @lru_cache(maxsize=2 ** 20)
-    def generate_child_states(self, state: _S) -> Dict[Action, _S]:
-        child_states = {
-            action: self.generate_child_state(state, action)
-            for action in self.legal_actions(state)
-        }
-        if __debug__:
-            for action in child_states:
-                assert action < self.num_actions
-        assert set(child_states.keys()) == set(self.legal_actions(state))
-        return child_states
-
     @abstractmethod
     def generate_child_state(self, state: _S, action: Action) -> _S:
         ...

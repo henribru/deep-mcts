@@ -232,7 +232,6 @@ def create_self_play_examples(
             print(f"{time.strftime('%H:%M:%S')} {i}")
             # cached_methods = [
             #     "generate_child_state",
-            #     "generate_child_states",
             #     "legal_actions",
             #     "is_final_state",
             #     "evaluate_final_state",
