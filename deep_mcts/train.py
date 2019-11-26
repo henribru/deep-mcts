@@ -59,16 +59,12 @@ class TrainingConfiguration(Generic[_S]):
         d = asdict(self)
         rollout_policy = d.pop("rollout_policy")
         d["has_rollout_policy"] = rollout_policy is not None
-        train_device_type = d["train_device"].type
-        train_device_index = d["train_device"].index
+        for device in ["train_device", "self_play_device"]:
+            device_type = d[device].type
+            device_index = d[device].index
         d[
-            "train_device"
-        ] = f"{train_device_type}{f':{train_device_index}' if train_device_index is not None else ''}"
-        self_play_device_type = d["self_play_device"].type
-        self_play_device_index = d["self_play_device"].index
-        d[
-            "self_play_device"
-        ] = f"{self_play_device_type}{f':{self_play_device_index}' if self_play_device_index is not None else ''}"
+                device
+            ] = f"{device_type}{f':{device_index}' if device_index is not None else ''}"
         return d
 
 
