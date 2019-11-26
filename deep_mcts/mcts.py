@@ -38,7 +38,7 @@ class Node:
 
     def u(self, parent: "Node") -> float:
         assert self.P != -1.0
-        c = 1
+        c = 1.25
         return c * self.P * sqrt(parent.N) / (1 + self.N)
 
     def Q(self, state: _S) -> float:
