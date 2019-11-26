@@ -15,12 +15,13 @@ else:
 class ConvolutionalNet(TensorPairModule):
     def __init__(
         self,
-        num_residual: int,
-        grid_size: int,
-        in_channels: int,
-        channels: int,
         policy_features: int,
         policy_shape: Tuple[int, ...],
+        grid_size: int,
+        in_channels: int,
+        num_residual: int,
+        channels: int,
+        value_head_hidden_units: int,
     ) -> None:
         super().__init__()
         self.conv1 = ConvolutionalBlock(
@@ -40,7 +41,7 @@ class ConvolutionalNet(TensorPairModule):
         self.policy_head = PolicyHead(
             grid_size, channels, policy_features, policy_shape
         )
-        self.value_head = ValueHead(grid_size, channels, hidden_units=1024)
+        self.value_head = ValueHead(grid_size, channels, value_head_hidden_units)
 
     def forward(  # type: ignore[override]
         self, x: torch.Tensor

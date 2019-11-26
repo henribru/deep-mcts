@@ -119,6 +119,15 @@ class GameNet(ABC, Generic[_S]):
     def save(self, path: str) -> None:
         torch.save(self.net.state_dict(), path)
 
+    def save_full(self, path: str) -> None:
+        torch.save(
+            self.parameters(), path,
+        )
+
+    @abstractmethod
+    def parameters(self) -> Dict[str, Any]:
+        ...
+
     def load(self, path: str) -> None:
         self.net.load_state_dict(torch.load(path, map_location=self.device))
 
@@ -152,6 +161,11 @@ class GameNet(ABC, Generic[_S]):
         anet.load(path)
         return anet
 
+    @classmethod
+    @abstractmethod
+    def from_path_full(cls: Type[_T], path: str) -> _T:
+        ...
+
     def load_state_dict(self, state_dict: Dict[str, torch.Tensor]) -> None:
         self.net.load_state_dict(state_dict)
 
@@ -174,12 +188,12 @@ class GreedyGameNetAgent(GameNetAgent[_S]):
         self.epsilon = epsilon
 
     def play(self, state: _S) -> Action:
-        return self.net.greedy_policy(state, self.epsilon)
+        raise NotImplementedError
 
 
 class SamplingGameNetAgent(GameNetAgent[_S]):
     def play(self, state: _S) -> Action:
-        return self.net.sampling_policy(state)
+        raise NotImplementedError
 
 
 def cross_entropy(

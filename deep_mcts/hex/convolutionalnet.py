@@ -1,4 +1,4 @@
-from typing import Mapping, Sequence, Tuple, Type, Any, Optional
+from typing import Mapping, Sequence, Tuple, Type, Any, Optional, Dict
 
 import torch
 import torch.optim
@@ -14,6 +14,7 @@ class ConvolutionalHexNet(GameNet[HexState]):
     grid_size: int
     num_residual: int
     channels: int
+    value_head_hidden_units: int
 
     def __init__(
         self,
@@ -26,8 +27,9 @@ class ConvolutionalHexNet(GameNet[HexState]):
             "momentum": 0.9,
             "weight_decay": 0.001,
         },
-        num_residual: int = 1,
+        num_residual: int = 3,
         channels: int = 128,
+        value_head_hidden_units: int = 128,
     ) -> None:
         super().__init__(
             ConvolutionalNet(
@@ -35,6 +37,7 @@ class ConvolutionalHexNet(GameNet[HexState]):
                 grid_size=grid_size,
                 in_channels=3,
                 channels=channels,
+                value_head_hidden_units=value_head_hidden_units,
                 policy_features=grid_size ** 2,
                 policy_shape=(grid_size, grid_size),
             ),
@@ -46,6 +49,7 @@ class ConvolutionalHexNet(GameNet[HexState]):
         self.grid_size = grid_size
         self.num_residual = num_residual
         self.channels = channels
+        self.value_head_hidden_units = value_head_hidden_units
 
     def _mask_illegal_moves(
         self, state: HexState, output: torch.Tensor
@@ -130,6 +134,35 @@ class ConvolutionalHexNet(GameNet[HexState]):
             self.optimizer_kwargs,
             self.num_residual,
             self.channels,
+            self.value_head_hidden_units,
         )
-        net.net.load_state_dict(self.net.state_dict())
+        net.load_state_dict(self.net.state_dict())
         return net
+
+    @classmethod
+    def from_path_full(cls, path: str) -> "ConvolutionalHexNet":
+        parameters = torch.load(path, map_location=torch.device("cpu"))
+        net = cls(
+            grid_size=parameters["grid_size"],
+            manager=None,
+            optimizer_cls=parameters["optimizer_cls"],
+            optimizer_args=parameters["optimizer_args"],
+            optimizer_kwargs=parameters["optimizer_kwargs"],
+            num_residual=parameters["num_residual"],
+            value_head_hidden_units=parameters["value_head_hidden_units"],
+            channels=parameters["channels"],
+        )
+        net.load_state_dict(parameters["state_dict"])
+        return net
+
+    def parameters(self) -> Dict[str, Any]:
+        return {
+            "grid_size": self.grid_size,
+            "optimizer_cls": self.optimizer_cls,
+            "optimizer_args": self.optimizer_args,
+            "optimizer_kwargs": self.optimizer_kwargs,
+            "num_residual": self.num_residual,
+            "channels": self.channels,
+            "value_head_hidden_units": self.value_head_hidden_units,
+            "state_dict": self.net.state_dict(),
+        }

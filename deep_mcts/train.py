@@ -3,6 +3,7 @@ import random
 import textwrap
 import time
 from functools import lru_cache
+import json
 from typing import (
     Iterable,
     Tuple,
@@ -12,12 +13,14 @@ from typing import (
     cast,
     Sequence,
     Generic,
+    Dict,
+    Any,
 )
 
 import pandas as pd
 import torch
 import torch.autograd
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from torch import multiprocessing
 
 from deep_mcts.game import State, GameManager, Player
@@ -52,6 +55,22 @@ class TrainingConfiguration(Generic[_S]):
     evaluation_games: int = 20
     transfer_interval: int = 1000
 
+    def to_json_dict(self) -> Dict[str, Any]:
+        d = asdict(self)
+        rollout_policy = d.pop("rollout_policy")
+        d["has_rollout_policy"] = rollout_policy is not None
+        train_device_type = d["train_device"].type
+        train_device_index = d["train_device"].index
+        d[
+            "train_device"
+        ] = f"{train_device_type}{f':{train_device_index}' if train_device_index is not None else ''}"
+        self_play_device_type = d["self_play_device"].type
+        self_play_device_index = d["self_play_device"].index
+        d[
+            "self_play_device"
+        ] = f"{self_play_device_type}{f':{self_play_device_index}' if self_play_device_index is not None else ''}"
+        return d
+
 
 def train(game_net: GameNet[_S], config: TrainingConfiguration[_S],) -> None:
     evaluations = pd.DataFrame.from_dict(
@@ -72,7 +91,16 @@ def _train(
     game_manager = game_net.manager
     game_net.to(config.train_device)
     replay_buffer: List[TensorSelfPlayGame] = []
-    game_net.save(f"{config.save_dir}/anet-0.pth")
+    game_net.save_full(f"{config.save_dir}/anet-0.tar")
+    with open(f"{config.save_dir}/parameters.json", "w") as f:
+        net_parameters = game_net.parameters()
+        net_parameters.pop("state_dict")
+        net_parameters["optimizer_cls"] = net_parameters["optimizer_cls"].__name__
+        parameters = {
+            "net_parameters": net_parameters,
+            "training_configuration": config.to_json_dict(),
+        }
+        json.dump(parameters, f, indent=2)
     multiprocessing.set_start_method("spawn")
     self_play_game_net = game_net.copy().to(config.self_play_device)
     last_trained_iteration = torch.tensor([-1])
@@ -121,8 +149,8 @@ def _train(
             config.save_interval != 0
             and (training_iterations + 1) % config.save_interval == 0
         ):
-            filepath = f"{config.save_dir}/anet-{training_iterations + 1}.pth"
-            game_net.save(filepath)
+            filepath = f"{config.save_dir}/anet-{training_iterations + 1}.tar"
+            game_net.save_full(filepath)
             print(f"{time.strftime('%H:%M:%S')} Saved {filepath}")
 
         if (

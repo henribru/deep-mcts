@@ -1,4 +1,4 @@
-from typing import Tuple, Sequence, Mapping, TYPE_CHECKING, Type, Any, Optional
+from typing import Tuple, Sequence, Mapping, TYPE_CHECKING, Type, Any, Optional, Dict
 
 import torch
 import torch.nn as nn
@@ -115,5 +115,25 @@ class FullyConnectedTicTacToeNet(GameNet[TicTacToeState]):
         net = FullyConnectedTicTacToeNet(
             self.manager, self.optimizer_cls, self.optimizer_args, self.optimizer_kwargs
         )
-        net.net.load_state_dict(self.net.state_dict())
+        net.load_state_dict(self.net.state_dict())
         return net
+
+    @classmethod
+    def from_path_full(cls, path: str) -> "FullyConnectedTicTacToeNet":
+        parameters = torch.load(path, map_location=torch.device("cpu"))
+        net = cls(
+            manager=None,
+            optimizer_cls=parameters["optimizer_cls"],
+            optimizer_args=parameters["optimizer_args"],
+            optimizer_kwargs=parameters["optimizer_kwargs"],
+        )
+        net.load_state_dict(parameters["state_dict"])
+        return net
+
+    def parameters(self) -> Dict[str, Any]:
+        return {
+            "optimizer_cls": self.optimizer_cls,
+            "optimizer_args": self.optimizer_args,
+            "optimizer_kwargs": self.optimizer_kwargs,
+            "state_dict": self.net.state_dict(),
+        }

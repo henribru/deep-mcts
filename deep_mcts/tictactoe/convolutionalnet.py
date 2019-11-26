@@ -1,4 +1,4 @@
-from typing import Tuple, Mapping, Sequence, Type, Any, Optional
+from typing import Tuple, Mapping, Sequence, Type, Any, Optional, Dict
 
 import torch
 import torch.optim
@@ -13,6 +13,7 @@ from deep_mcts.tictactoe.game import Action, TicTacToeState, TicTacToeManager
 class ConvolutionalTicTacToeNet(GameNet[TicTacToeState]):
     num_residual: int
     channels: int
+    value_head_hidden_units: int
 
     def __init__(
         self,
@@ -26,6 +27,7 @@ class ConvolutionalTicTacToeNet(GameNet[TicTacToeState]):
         },
         num_residual: int = 3,
         channels: int = 3,
+        value_head_hidden_units: int = 128,
     ) -> None:
         super().__init__(
             ConvolutionalNet(
@@ -33,6 +35,7 @@ class ConvolutionalTicTacToeNet(GameNet[TicTacToeState]):
                 grid_size=3,
                 in_channels=3,
                 channels=channels,
+                value_head_hidden_units=value_head_hidden_units,
                 policy_features=9,
                 policy_shape=(3, 3),
             ),
@@ -43,6 +46,7 @@ class ConvolutionalTicTacToeNet(GameNet[TicTacToeState]):
         )
         self.num_residual = num_residual
         self.channels = channels
+        self.value_head_hidden_units = value_head_hidden_units
 
     def _mask_illegal_moves(
         self, state: TicTacToeState, output: torch.Tensor
@@ -83,6 +87,34 @@ class ConvolutionalTicTacToeNet(GameNet[TicTacToeState]):
             self.optimizer_kwargs,
             self.num_residual,
             self.channels,
+            self.value_head_hidden_units,
         )
-        net.net.load_state_dict(self.net.state_dict())
+        net.load_state_dict(self.net.state_dict())
         return net
+
+    @classmethod
+    def from_path_full(cls, path: str) -> "ConvolutionalTicTacToeNet":
+        parameters = torch.load(path, map_location=torch.device("cpu"))
+        state_dict = parameters.pop("state_dict")
+        net = cls(
+            manager=None,
+            optimizer_cls=parameters["optimizer_cls"],
+            optimizer_args=parameters["optimizer_args"],
+            optimizer_kwargs=parameters["optimizer_kwargs"],
+            num_residual=parameters["num_residual"],
+            channels=parameters["channels"],
+            value_head_hidden_units=parameters["value_head_hidden_units"],
+        )
+        net.load_state_dict(parameters["state_dict"])
+        return net
+
+    def parameters(self) -> Dict[str, Any]:
+        return {
+            "optimizer_cls": self.optimizer_cls,
+            "optimizer_args": self.optimizer_args,
+            "optimizer_kwargs": self.optimizer_kwargs,
+            "num_residual": self.num_residual,
+            "channels": self.channels,
+            "value_head_hidden_units": self.value_head_hidden_units,
+            "state_dict": self.net.state_dict(),
+        }

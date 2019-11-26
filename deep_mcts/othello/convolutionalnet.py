@@ -1,4 +1,4 @@
-from typing import Tuple, Mapping, Sequence, Type, Any, Optional
+from typing import Tuple, Mapping, Sequence, Type, Any, Optional, Dict
 
 import torch
 import torch.optim
@@ -17,6 +17,7 @@ class ConvolutionalOthelloNet(GameNet[OthelloState]):
     grid_size: int
     num_residual: int
     channels: int
+    value_head_hidden_units: int
 
     def __init__(
         self,
@@ -31,12 +32,14 @@ class ConvolutionalOthelloNet(GameNet[OthelloState]):
         },
         num_residual: int = 1,
         channels: int = 128,
+        value_head_hidden_units: int = 128,
     ) -> None:
         super().__init__(
             ConvolutionalNet(
                 num_residual=num_residual,
                 grid_size=grid_size,
                 in_channels=3,
+                value_head_hidden_units=value_head_hidden_units,
                 channels=channels,
                 policy_features=grid_size ** 2 + 1,
                 policy_shape=(grid_size ** 2 + 1,),
@@ -49,6 +52,7 @@ class ConvolutionalOthelloNet(GameNet[OthelloState]):
         self.grid_size = grid_size
         self.num_residual = num_residual
         self.channels = channels
+        self.value_head_hidden_units = value_head_hidden_units
 
     def states_to_tensor(self, states: Sequence[OthelloState]) -> torch.Tensor:
         players, opposite_players, grids = zip(
@@ -81,5 +85,33 @@ class ConvolutionalOthelloNet(GameNet[OthelloState]):
             self.num_residual,
             self.channels,
         )
-        net.net.load_state_dict(self.net.state_dict())
+        net.load_state_dict(self.net.state_dict())
         return net
+
+    @classmethod
+    def from_path_full(cls, path: str) -> "ConvolutionalOthelloNet":
+        parameters = torch.load(path, map_location=torch.device("cpu"))
+        net = cls(
+            grid_size=parameters["grid_size"],
+            manager=None,
+            optimizer_cls=parameters["optimizer_cls"],
+            optimizer_args=parameters["optimizer_args"],
+            optimizer_kwargs=parameters["optimizer_kwargs"],
+            num_residual=parameters["num_residual"],
+            value_head_hidden_units=parameters["value_head_hidden_units"],
+            channels=parameters["channels"],
+        )
+        net.load_state_dict(parameters["state_dict"])
+        return net
+
+    def parameters(self) -> Dict[str, Any]:
+        return {
+            "grid_size": self.grid_size,
+            "optimizer_cls": self.optimizer_cls,
+            "optimizer_args": self.optimizer_args,
+            "optimizer_kwargs": self.optimizer_kwargs,
+            "num_residual": self.num_residual,
+            "channels": self.channels,
+            "value_head_hidden_units": self.value_head_hidden_units,
+            "state_dict": self.net.state_dict(),
+        }
