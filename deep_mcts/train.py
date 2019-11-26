@@ -298,7 +298,7 @@ def get_new_games(
     assert probability_targets.shape[0] == len(new_examples)
     states = game_net.states_to_tensor(states)
     assert states.shape[0] == len(new_examples)
-    new_examples = list(zip(states, probability_targets, value_targets))
+    new_examples = list(zip(states, probability_targets, value_targets))  # type: ignore[call-overload]
     new_games = []
     i = 0
     for game_length in game_lengths:
