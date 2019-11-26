@@ -124,9 +124,13 @@ class GameNet(ABC, Generic[_S]):
             self.parameters(), path,
         )
 
-    @abstractmethod
     def parameters(self) -> Dict[str, Any]:
-        ...
+        return {
+            "optimizer_cls": self.optimizer_cls,
+            "optimizer_args": self.optimizer_args,
+            "optimizer_kwargs": self.optimizer_kwargs,
+            "state_dict": self.net.state_dict(),
+        }
 
     def load(self, path: str) -> None:
         self.net.load_state_dict(torch.load(path, map_location=self.device))

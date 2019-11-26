@@ -157,12 +157,9 @@ class ConvolutionalHexNet(GameNet[HexState]):
 
     def parameters(self) -> Dict[str, Any]:
         return {
+            **super().parameters(),
             "grid_size": self.grid_size,
-            "optimizer_cls": self.optimizer_cls,
-            "optimizer_args": self.optimizer_args,
-            "optimizer_kwargs": self.optimizer_kwargs,
             "num_residual": self.num_residual,
             "channels": self.channels,
             "value_head_hidden_units": self.value_head_hidden_units,
-            "state_dict": self.net.state_dict(),
         }

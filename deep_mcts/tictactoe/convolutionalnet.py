@@ -110,11 +110,8 @@ class ConvolutionalTicTacToeNet(GameNet[TicTacToeState]):
 
     def parameters(self) -> Dict[str, Any]:
         return {
-            "optimizer_cls": self.optimizer_cls,
-            "optimizer_args": self.optimizer_args,
-            "optimizer_kwargs": self.optimizer_kwargs,
+            **super().parameters(),
             "num_residual": self.num_residual,
             "channels": self.channels,
             "value_head_hidden_units": self.value_head_hidden_units,
-            "state_dict": self.net.state_dict(),
         }

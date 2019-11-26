@@ -129,11 +129,3 @@ class FullyConnectedTicTacToeNet(GameNet[TicTacToeState]):
         )
         net.load_state_dict(parameters["state_dict"])
         return net
-
-    def parameters(self) -> Dict[str, Any]:
-        return {
-            "optimizer_cls": self.optimizer_cls,
-            "optimizer_args": self.optimizer_args,
-            "optimizer_kwargs": self.optimizer_kwargs,
-            "state_dict": self.net.state_dict(),
-        }
