@@ -355,9 +355,8 @@ def evaluate(
                     config.num_simulations,
                     config.rollout_policy,
                     state_evaluator,
-                    dirichlet_alpha=config.dirichlet_alpha,
-                    dirichlet_factor=config.dirichlet_factor,
                 ),
+                epsilon=config.epsilon,
             ),
             MCTSAgent(
                 MCTS(
@@ -365,9 +364,8 @@ def evaluate(
                     config.num_simulations,
                     config.rollout_policy,
                     previous_state_evaluator,
-                    dirichlet_alpha=config.dirichlet_alpha,
-                    dirichlet_factor=config.dirichlet_factor,
                 ),
+                epsilon=config.epsilon,
             ),
         ),
         config.evaluation_games,
