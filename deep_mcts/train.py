@@ -69,20 +69,48 @@ class TrainingConfiguration(Generic[_S]):
 
 
 def train(game_net: GameNet[_S], config: TrainingConfiguration[_S],) -> None:
-    evaluations = pd.DataFrame.from_dict(
-        {
-            i: (random_evaluation, previous_evaluation)
-            for i, random_evaluation, previous_evaluation in _train(game_net, config,)
-        },
-        orient="index",
-        columns=["against_random", "against_previous"],
+    evaluations = pd.DataFrame(
+            [
+            [
+                training_iterations,
+                training_games,
+                *[*random_evaluation[0], *random_evaluation[1], *random_evaluation[2]],
+                *[
+                    *previous_evaluation[0],
+                    *previous_evaluation[1],
+                    *previous_evaluation[2],
+                ],
+            ]
+            for (
+                training_iterations,
+                training_games,
+                random_evaluation,
+                previous_evaluation,
+            ) in _train(game_net, config)
+        ],
+        columns=[
+            "training_iterations",
+            "training_games",
+            "random_first_wins",
+            "random_second_wins",
+            "random_first_draws",
+            "random_second_draws",
+            "random_first_losses",
+            "random_second_losses",
+            "previous_first_wins",
+            "previous_second_wins",
+            "previous_first_draws",
+            "previous_second_draws",
+            "previous_first_losses",
+            "previous_second_losses",
+        ],
     )
     evaluations.to_csv(f"{config.save_dir}/evaluations.csv")
 
 
 def _train(
     game_net: GameNet[_S], config: TrainingConfiguration[_S],
-) -> Iterable[Tuple[int, AgentComparison, AgentComparison]]:
+) -> Iterable[Tuple[int, int, AgentComparison, AgentComparison]]:
     print(f"{time.strftime('%H:%M:%S')} Starting")
     game_manager = game_net.manager
     game_net.to(config.train_device)
@@ -178,7 +206,7 @@ def _train(
             accuracy[0] = 0.0
             prev_evaluation_time = time.perf_counter()
             previous_game_net.load_state_dict(game_net.net.state_dict())
-            yield training_iterations, random_mcts_evaluation, previous_evaluation
+            yield training_iterations, training_games_count, random_mcts_evaluation, previous_evaluation
 
         training_iterations += 1
 
