@@ -366,7 +366,7 @@ def evaluate(
             MCTSAgent(
                 MCTS(
                     game_manager,
-                    config.num_simulations * 4,
+                    config.num_simulations * 2,
                     lambda s: random.choice(game_manager.legal_actions(s)),
                     state_evaluator=None,
                 )
