@@ -1,8 +1,10 @@
-from typing import TYPE_CHECKING, Tuple
+from typing import TYPE_CHECKING, Tuple, Callable, TypeVar
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+_T = TypeVar("_T")
 
 if TYPE_CHECKING:
     TensorModule = nn.Module[torch.Tensor]
@@ -10,6 +12,11 @@ if TYPE_CHECKING:
 else:
     TensorModule = nn.Module
     TensorPairModule = nn.Module
+
+
+class IdentityModule(nn.Module):  # type: ignore[type-arg]
+    def forward(self, x: _T) -> _T:  # type: ignore[override]
+        return x
 
 
 class ConvolutionalNet(TensorPairModule):
@@ -92,7 +99,11 @@ class ResidualBlock(TensorModule):
         self.bn1 = nn.BatchNorm2d(out_channels)
         self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size, padding=padding)
         self.bn2 = nn.BatchNorm2d(out_channels)
-        self.projection = nn.Conv2d(in_channels, out_channels, kernel_size=1)
+        self.projection: Callable[[torch.Tensor], torch.Tensor]
+        if in_channels != out_channels:
+            self.projection = nn.Conv2d(in_channels, out_channels, kernel_size=1)
+        else:
+            self.projection = IdentityModule()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:  # type: ignore[override]
         input = x
