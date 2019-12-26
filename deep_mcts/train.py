@@ -48,7 +48,7 @@ class TrainingConfiguration(Generic[_S]):
     rollout_policy: Optional[RolloutPolicy[_S]] = None
     epsilon: float = 0.05
     nprocs: int = 25
-    batch_size: int = 512
+    batch_size: int = 1024
     replay_buffer_max_size: int = 100_000
     train_device: torch.device = torch.device("cuda:1")
     self_play_device: torch.device = torch.device("cuda:0")
