@@ -51,7 +51,11 @@ class HexWithSwapGTPInterface(GTPInterface[HexState]):
     @staticmethod
     def get_game_net(board_size: int) -> ConvolutionalHexWithSwapNet:
         if board_size == int(sys.argv[1]):
-            return ConvolutionalHexWithSwapNet.from_path(sys.argv[2], board_size)
+            path = sys.argv[2]
+            if path.endswith(".pth"):
+                return ConvolutionalHexWithSwapNet.from_path(path, board_size)
+            else:
+                return ConvolutionalHexWithSwapNet.from_path_full(path)
         return ConvolutionalHexWithSwapNet(board_size)
 
 

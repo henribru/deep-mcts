@@ -38,7 +38,11 @@ class HexGTPInterface(GTPInterface[HexState]):
     @staticmethod
     def get_game_net(board_size: int) -> ConvolutionalHexNet:
         if board_size == int(sys.argv[1]):
-            return ConvolutionalHexNet.from_path(sys.argv[2], board_size)
+            path = sys.argv[2]
+            if path.endswith(".pth"):
+                return ConvolutionalHexNet.from_path(path, board_size)
+            else:
+                return ConvolutionalHexNet.from_path_full(path)
         return ConvolutionalHexNet(board_size)
 
 

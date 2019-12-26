@@ -133,7 +133,12 @@ class GameNet(ABC, Generic[_S]):
         }
 
     def load(self, path: str) -> None:
-        self.net.load_state_dict(torch.load(path, map_location=self.device))
+        if path.endswith(".pth"):
+            self.net.load_state_dict(torch.load(path, map_location=self.device))
+        else:
+            self.net.load_state_dict(
+                torch.load(path, map_location=self.device)["state_dict"]
+            )
 
     @abstractmethod
     def states_to_tensor(self, states: Sequence[_S]) -> torch.Tensor:

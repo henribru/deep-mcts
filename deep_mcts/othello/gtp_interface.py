@@ -37,7 +37,11 @@ class OthelloGTPInterface(GTPInterface[OthelloState]):
     @staticmethod
     def get_game_net(board_size: int) -> ConvolutionalOthelloNet:
         if len(sys.argv) == 3 and board_size == int(sys.argv[1]):
-            return ConvolutionalOthelloNet.from_path(sys.argv[2], board_size)
+            path = sys.argv[2]
+            if path.endswith(".pth"):
+                return ConvolutionalOthelloNet.from_path(path, board_size)
+            else:
+                return ConvolutionalOthelloNet.from_path_full(path)
         return ConvolutionalOthelloNet(board_size)
 
 
