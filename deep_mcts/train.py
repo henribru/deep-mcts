@@ -62,7 +62,7 @@ class TrainingConfiguration(Generic[_S]):
         for device in ["train_device", "self_play_device"]:
             device_type = d[device].type
             device_index = d[device].index
-        d[
+            d[
                 device
             ] = f"{device_type}{f':{device_index}' if device_index is not None else ''}"
         return d
@@ -70,7 +70,7 @@ class TrainingConfiguration(Generic[_S]):
 
 def train(game_net: GameNet[_S], config: TrainingConfiguration[_S],) -> None:
     evaluations = pd.DataFrame(
-            [
+        [
             [
                 training_iterations,
                 training_games,
@@ -405,6 +405,7 @@ def evaluate(
 def cached_state_evaluator(game_net: GameNet[_S]) -> StateEvaluator[_S]:
     @lru_cache(2 ** 20)
     def inner(state: _S) -> Tuple[float, Sequence[float]]:
-        return game_net.forward(state)  # type: ignore
+        value, probabilities = game_net.forward(state)
+        return value, probabilities.tolist()
 
     return inner
