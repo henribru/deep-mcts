@@ -30,7 +30,7 @@ class ConvolutionalOthelloNet(GameNet[OthelloState]):
             "momentum": 0.9,
             "weight_decay": 0.001,
         },
-        num_residual: int = 1,
+        num_residual: int = 3,
         channels: int = 128,
         value_head_hidden_units: int = 128,
     ) -> None:
