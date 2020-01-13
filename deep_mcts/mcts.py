@@ -63,6 +63,7 @@ class MCTS(Generic[_S]):
     sample_move_cutoff: int
     dirichlet_alpha: float
     dirichlet_factor: float
+    rollout_share: float
 
     def __init__(
         self,
@@ -73,7 +74,10 @@ class MCTS(Generic[_S]):
         sample_move_cutoff: int = 0,
         dirichlet_alpha: float = 0.0,
         dirichlet_factor: float = 0.25,
+        rollout_share: float = 1.0,
     ) -> None:
+        if rollout_policy is None and state_evaluator is None:
+            raise ValueError("Both rollout_policy and state_evaluator cannot be None")
         self.game_manager = game_manager
         self.num_simulations = num_simulations
         self.rollout_policy = rollout_policy
@@ -83,6 +87,7 @@ class MCTS(Generic[_S]):
         self.sample_move_cutoff = sample_move_cutoff
         self.dirichlet_alpha = dirichlet_alpha
         self.dirichlet_factor = dirichlet_factor
+        self.rollout_share = rollout_share
 
     def tree_search(self) -> Tuple[List[Node], _S]:
         path = [self.root]
@@ -126,10 +131,8 @@ class MCTS(Generic[_S]):
 
     def rollout(self, node: Node, state: _S) -> float:
         assert (node.E, node.N) == (0.0, 0)
-        if self.rollout_policy is None:
-            return 0.5
         while not self.game_manager.is_final_state(state):
-            action = self.rollout_policy(state)
+            action = self.rollout_policy(state)  # type: ignore[misc]
             state = self.game_manager.generate_child_state(state, action)
         return self.game_manager.evaluate_final_state(state).value  # type: ignore[no-any-return]
 
@@ -142,12 +145,15 @@ class MCTS(Generic[_S]):
         if self.game_manager.is_final_state(state):
             return self.game_manager.evaluate_final_state(state).value  # type: ignore[no-any-return]
         value = self.expand_node(leaf_node, state)
-        rollout_value = self.rollout(leaf_node, state)
         if self.state_evaluator is None:
+            rollout_value = self.rollout(leaf_node, state)
             return rollout_value
-        elif self.rollout_policy is None:
+        elif self.rollout_policy is None or (
+            self.rollout_share < 1.0 and random.random() >= self.rollout_share
+        ):
             return value
         else:
+            rollout_value = self.rollout(leaf_node, state)
             return (rollout_value + value) / 2
 
     def self_play(self) -> Iterable[Tuple[_S, _S, Action, Sequence[float]]]:
