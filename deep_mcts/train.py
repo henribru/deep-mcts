@@ -125,6 +125,7 @@ def _train(
             "training_configuration": config.to_json_dict(),
         }
         json.dump(parameters, f, indent=2)
+    if multiprocessing.get_start_method(allow_none=True) != "spawn":
     multiprocessing.set_start_method("spawn")
     self_play_game_net = game_net.copy().to(config.self_play_device)
     last_trained_iteration = torch.tensor([-1])
