@@ -68,7 +68,7 @@ class TrainingConfiguration(Generic[_S]):
         return d
 
 
-def train(game_net: GameNet[_S], config: TrainingConfiguration[_S],) -> None:
+def train(game_net: GameNet[_S], config: TrainingConfiguration[_S]) -> None:
     evaluations = pd.DataFrame(
         [
             [
@@ -109,7 +109,7 @@ def train(game_net: GameNet[_S], config: TrainingConfiguration[_S],) -> None:
 
 
 def _train(
-    game_net: GameNet[_S], config: TrainingConfiguration[_S],
+    game_net: GameNet[_S], config: TrainingConfiguration[_S]
 ) -> Iterable[Tuple[int, int, AgentComparison, AgentComparison]]:
     print(f"{time.strftime('%H:%M:%S')} Starting")
     game_manager = game_net.manager
@@ -130,7 +130,7 @@ def _train(
     self_play_game_net = game_net.copy().to(config.self_play_device)
     last_trained_iteration = torch.tensor([-1])
     self_playing_context, games_queue = spawn_self_play_example_creators(
-        self_play_game_net, last_trained_iteration, config,
+        self_play_game_net, last_trained_iteration, config
     )
     previous_game_net = game_net.copy().to(config.train_device)
     training_iterations = 0
@@ -184,17 +184,17 @@ def _train(
         ):
             print(f"{time.strftime('%H:%M:%S')} evaluating")
             random_mcts_evaluation, previous_evaluation = evaluate(
-                game_net, previous_game_net, game_manager, config,
+                game_net, previous_game_net, game_manager, config
             )
             print(
                 textwrap.dedent(
                     f"""
                     {time.strftime('%H:%M:%S')}
-                    iterations: {training_iterations + 1} 
+                    iterations: {training_iterations + 1}
                     games: {training_games_count}
-                    examples: {training_examples_count} 
+                    examples: {training_examples_count}
                     evaluation_duration: {time.perf_counter() - prev_evaluation_time:.2f}
-                    previous: {previous_evaluation} 
+                    previous: {previous_evaluation}
                     random MCTS: {random_mcts_evaluation}
                     policy_loss: {policy_loss.item() / config.evaluation_interval:.2f}
                     value_loss: {value_loss.item() / config.evaluation_interval:.2f}
@@ -319,11 +319,13 @@ def get_new_games(
     states, probability_targets, value_targets = zip(*new_examples)
     value_targets = torch.tensor(value_targets, dtype=torch.float32).reshape((-1, 1))
     assert value_targets.shape[0] == len(new_examples)
-    probability_targets = game_net.distributions_to_tensor(states, probability_targets)
+    probability_targets = game_net.distributions_to_tensor(probability_targets)
     assert probability_targets.shape[0] == len(new_examples)
     states = game_net.states_to_tensor(states)
     assert states.shape[0] == len(new_examples)
-    new_examples = list(zip(states, probability_targets, value_targets))  # type: ignore[call-overload]
+    new_examples = list(
+        zip(states, probability_targets, value_targets)  # type: ignore[call-overload]
+    )
     new_games = []
     i = 0
     for game_length in game_lengths:
@@ -406,7 +408,7 @@ def evaluate(
 def cached_state_evaluator(game_net: GameNet[_S]) -> StateEvaluator[_S]:
     @lru_cache(2 ** 20)
     def inner(state: _S) -> Tuple[float, Sequence[float]]:
-        value, probabilities = game_net.forward(state)
+        value, probabilities = game_net.evaluate(state)
         return value, probabilities.tolist()
 
     return inner

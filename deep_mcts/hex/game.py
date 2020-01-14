@@ -63,9 +63,7 @@ class HexManager(GameManager[HexState]):
         )
 
     @lru_cache(maxsize=2 ** 20)
-    def legal_actions(  # type: ignore[override]
-        self, state: HexState
-    ) -> List[Action]:
+    def legal_actions(self, state: HexState) -> List[Action]:  # type: ignore[override]
         return [
             x + y * self.grid_size
             for y in range(self.grid_size)
@@ -74,13 +72,13 @@ class HexManager(GameManager[HexState]):
         ]
 
     @lru_cache(maxsize=2 ** 20)
-    def is_final_state(  # type: ignore[override]
-        self, state: HexState
-    ) -> bool:
+    def is_final_state(self, state: HexState) -> bool:  # type: ignore[override]
         return self.evaluate_final_state(state) != Outcome.DRAW
 
     @lru_cache(maxsize=2 ** 20)
-    def evaluate_final_state(self, state: HexState) -> Outcome:  # type: ignore[override]
+    def evaluate_final_state(  # type: ignore[override]
+        self, state: HexState
+    ) -> Outcome:
         starts = (
             (0, y)
             for y in range(self.grid_size)

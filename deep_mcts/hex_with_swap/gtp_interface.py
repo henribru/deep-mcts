@@ -5,11 +5,7 @@ from typing import Callable, Dict, List, Optional
 
 from deep_mcts.gtp_interface import GTPInterface
 from deep_mcts.hex_with_swap.convolutionalnet import ConvolutionalHexWithSwapNet
-from deep_mcts.hex_with_swap.game import (
-    Action,
-    HexWithSwapManager,
-    HexState,
-)
+from deep_mcts.hex_with_swap.game import Action, HexWithSwapManager, HexState
 from deep_mcts.mcts import MCTS
 
 

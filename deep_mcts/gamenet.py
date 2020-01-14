@@ -58,12 +58,15 @@ class GameNet(ABC, Generic[_S]):
             self.net.parameters(), *optimizer_args, **optimizer_kwargs
         )
 
-    def forward(self, state: _S) -> Tuple[float, torch.Tensor]:
+    def forward(self, states: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        return self.net.forward(states)
+
+    def evaluate(self, state: _S) -> Tuple[float, torch.Tensor]:
         self.net.eval()
         states = self.states_to_tensor([state]).to(self.device)
         value: torch.Tensor
         with torch.autograd.no_grad():
-            value, probabilities = self.net.forward(states.float())
+            value, probabilities = self.forward(states.float())
         value = torch.tanh(value)
         # The output value is from the perspective of the current player,
         # but MCTS expects it to be independent of the player
@@ -78,7 +81,7 @@ class GameNet(ABC, Generic[_S]):
         probabilities = probabilities / torch.sum(probabilities)
         assert probabilities.shape == (self.manager.num_actions,)
         assert torch.allclose(
-            torch.sum(probabilities), torch.tensor([1.0], device=self.device),
+            torch.sum(probabilities), torch.tensor([1.0], device=self.device)
         )
         value = value.item()
         probabilities = probabilities.cpu().detach()
@@ -99,7 +102,7 @@ class GameNet(ABC, Generic[_S]):
         value_targets: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         self.net.train()
-        values, probabilities = self.net.forward(states.float())
+        values, probabilities = self.forward(states.float())
         values = torch.tanh(values)
         assert probabilities.shape[0] == states.shape[0]
         assert values.shape == (states.shape[0], 1)
@@ -121,9 +124,7 @@ class GameNet(ABC, Generic[_S]):
         torch.save(self.net.state_dict(), path)
 
     def save_full(self, path: str) -> None:
-        torch.save(
-            self.parameters(), path,
-        )
+        torch.save(self.parameters(), path)
 
     def parameters(self) -> Dict[str, Any]:
         return {
@@ -146,7 +147,7 @@ class GameNet(ABC, Generic[_S]):
         ...
 
     def distributions_to_tensor(
-        self, states: Sequence[_S], distributions: Sequence[Sequence[float]],
+        self, distributions: Sequence[Sequence[float]]
     ) -> torch.Tensor:
         targets = torch.tensor(distributions, dtype=torch.float32)
         assert targets.shape == (len(distributions), self.manager.num_actions)

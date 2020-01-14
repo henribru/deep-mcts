@@ -149,7 +149,7 @@ class PolicyHead(TensorModule):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:  # type: ignore[override]
         x = self.conv1(x)
-        x = self.fc1(x.reshape((x.shape[0], -1))).reshape((-1, 1, *self.out_shape))
+        x = self.fc1(x.reshape((x.shape[0], -1))).reshape((-1, *self.out_shape))
         return x
 
 

@@ -22,8 +22,8 @@ if __name__ == "__main__":
             TrainingConfiguration[OthelloState](
                 num_games=1000,
                 num_simulations=50,
-                save_interval=10_000,
-                evaluation_interval=10_000,
+                save_interval=10000,
+                evaluation_interval=10000,
                 save_dir=str(save_dir),
                 sample_move_cutoff=10,
                 dirichlet_alpha=1,

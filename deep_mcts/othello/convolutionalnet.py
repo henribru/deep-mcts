@@ -7,10 +7,7 @@ import torch.optim.optimizer
 from deep_mcts.convolutionalnet import ConvolutionalNet
 from deep_mcts.game import GameManager, Action
 from deep_mcts.gamenet import GameNet
-from deep_mcts.othello.game import (
-    OthelloState,
-    OthelloManager,
-)
+from deep_mcts.othello.game import OthelloState, OthelloManager
 
 
 class ConvolutionalOthelloNet(GameNet[OthelloState]):

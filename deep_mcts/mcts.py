@@ -25,33 +25,33 @@ RolloutPolicy = Callable[[_S], Action]
 
 
 class Node:
-    __slots__ = ["children", "E", "N", "P"]
+    __slots__ = ["children", "value_sum", "visits", "probability"]
     children: Dict[Action, "Node"]
-    E: float
-    N: int
-    P: float
+    value_sum: float
+    visits: int
+    probability: float
 
-    def __init__(self, P: float = -1.0) -> None:
-        self.E = 0
-        self.N = 0
-        self.P = P
+    def __init__(self, probability: float = -1.0) -> None:
+        self.value_sum = 0.0
+        self.visits = 0
+        self.probability = probability
         self.children = {}
 
     def u(self, parent: "Node") -> float:
-        assert self.P != -1.0
+        assert self.probability != -1.0
         c = 1.25
-        return c * self.P * sqrt(parent.N) / (1 + self.N)
+        return c * self.probability * sqrt(parent.visits) / (1 + self.visits)
 
-    def Q(self, state: _S) -> float:
+    def value(self, parent: _S) -> float:
         # Count unvisited nodes as lost
-        Q: float
-        if self.N == 0:
-            assert self.E == 0
-            Q = state.player.loss().value
+        value: float
+        if self.visits == 0:
+            assert self.value_sum == 0
+            value = parent.player.loss().value
         else:
-            Q = self.E / self.N
-        assert 0.0 <= Q <= 1.0
-        return Q
+            value = self.value_sum / self.visits
+        assert 0.0 <= value <= 1.0
+        return value
 
 
 class MCTS(Generic[_S]):
@@ -101,19 +101,19 @@ class MCTS(Generic[_S]):
             if state.player == Player.max_player():
                 action, node = max(
                     node.children.items(),
-                    key=lambda a_n: a_n[1].Q(state) + a_n[1].u(node),
+                    key=lambda a_n: a_n[1].value(state) + a_n[1].u(node),
                 )
             else:
                 action, node = min(
                     node.children.items(),
-                    key=lambda a_n: a_n[1].Q(state) - a_n[1].u(node),
+                    key=lambda a_n: a_n[1].value(state) - a_n[1].u(node),
                 )
             path.append(node)
             state = self.game_manager.generate_child_state(state, action)
         return path, state
 
     def expand_node(self, node: Node, state: _S) -> float:
-        assert (node.E, node.N) == (0.0, 0)
+        assert (node.value_sum, node.visits) == (0.0, 0)
         legal_actions = set(self.game_manager.legal_actions(state))
         probabilities: Sequence[float]
         if self.state_evaluator is None:
@@ -134,20 +134,24 @@ class MCTS(Generic[_S]):
         return value
 
     def rollout(self, node: Node, state: _S) -> float:
-        assert (node.E, node.N) == (0.0, 0)
+        assert (node.value_sum, node.visits) == (0.0, 0)
         while not self.game_manager.is_final_state(state):
             action = self.rollout_policy(state)  # type: ignore[misc]
             state = self.game_manager.generate_child_state(state, action)
-        return self.game_manager.evaluate_final_state(state).value  # type: ignore[no-any-return]
+        return self.game_manager.evaluate_final_state(  # type: ignore[no-any-return]
+            state
+        ).value
 
     def backpropagate(self, path: Iterable[Node], evaluation: float) -> None:
         for node in path:
-            node.N += 1
-            node.E += evaluation
+            node.visits += 1
+            node.value_sum += evaluation
 
     def evaluate_leaf(self, leaf_node: Node, state: _S) -> float:
         if self.game_manager.is_final_state(state):
-            return self.game_manager.evaluate_final_state(state).value  # type: ignore[no-any-return]
+            return self.game_manager.evaluate_final_state(  # type: ignore[no-any-return]
+                state
+            ).value
         value = self.expand_node(leaf_node, state)
         if self.state_evaluator is None:
             rollout_value = self.rollout(leaf_node, state)
@@ -182,14 +186,15 @@ class MCTS(Generic[_S]):
             return
         noise = np.random.dirichlet([self.dirichlet_alpha] * len(node.children))
         for i, child in enumerate(node.children.values()):
-            child.P = (
-                child.P * (1 - self.dirichlet_factor) + noise[i] * self.dirichlet_factor
+            child.probability = (
+                child.probability * (1 - self.dirichlet_factor)
+                + noise[i] * self.dirichlet_factor
             )
 
     def step(self) -> Tuple[List[float], Tuple[int, int]]:
         if not self.root.children:
             self.expand_node(self.root, self.state)
-            self.root.N += 1
+            self.root.visits += 1
         self.add_dirichlet_noise(self.root)
         simulations_with_expansion = 0
         simulations_without_expansion = 0
@@ -212,10 +217,10 @@ class MCTS(Generic[_S]):
                     simulations_without_expansion += 1
                 else:
                     simulations_with_expansion += 1
-        visit_sum = sum(node.N for node in self.root.children.values())
+        visit_sum = sum(node.visits for node in self.root.children.values())
         return (
             [
-                self.root.children[action].N / visit_sum
+                self.root.children[action].visits / visit_sum
                 if action in self.root.children
                 else 0.0
                 for action in range(self.game_manager.num_actions)
@@ -230,9 +235,9 @@ class MCTS(Generic[_S]):
         self.backpropagate(path, evaluation)
         if __debug__:
             if self.game_manager.is_final_state(state):
-                assert leaf_node.Q(state) == evaluation
+                assert leaf_node.value(state) == evaluation
             else:
-                assert (leaf_node.N, leaf_node.E) == (1, evaluation)
+                assert (leaf_node.visits, leaf_node.value_sum) == (1, evaluation)
         return state
 
     def reset(self) -> None:

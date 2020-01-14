@@ -51,33 +51,15 @@ class ConvolutionalHexNet(GameNet[HexState]):
         self.channels = channels
         self.value_head_hidden_units = value_head_hidden_units
 
-    def _mask_illegal_moves(
-        self, state: HexState, output: torch.Tensor
-    ) -> torch.Tensor:
-        # Since we flip the board for the second player, we also need to flip the mask
-        state = (
-            torch.tensor(state.grid)
-            if state.player == Player.FIRST
-            else torch.tensor(state.grid).t()
-        ).flatten()
-        legal_moves = (state == CellState.EMPTY).to(
-            dtype=torch.float32, device=self.device
-        )
-        assert legal_moves.shape == output.shape
-        result = output * legal_moves
-        assert result.shape == output.shape
-        return result
-
-    # Since we flip the board for the second player, we need to flip it back
-    def forward(self, state: HexState) -> Tuple[float, torch.Tensor]:
-        value, action_probabilities = super().forward(state)
-        if state.player == Player.SECOND:
-            action_probabilities = (
-                action_probabilities.reshape((self.grid_size, self.grid_size))
-                .t()
-                .flatten()
-            )
-        return value, action_probabilities
+    def forward(self, states: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        # Since we flip the board for the second player, we need to flip it back
+        values, action_probabilities = super().forward(states)
+        players = states[:, 2, 0, 0]
+        second_player_states = players == Player.SECOND
+        action_probabilities[second_player_states, :, :] = action_probabilities[
+            second_player_states, :, :
+        ].transpose(1, 2)
+        return values, action_probabilities
 
     def states_to_tensor(self, states: Sequence[HexState]) -> torch.Tensor:
         second_player_states, players, opposite_players, grids = zip(
@@ -110,20 +92,6 @@ class ConvolutionalHexNet(GameNet[HexState]):
         tensor = torch.stack((current_player, other_player, player_grids), dim=1)
         assert tensor.shape == (len(states), 3, self.grid_size, self.grid_size)
         return tensor
-
-    def distributions_to_tensor(
-        self, states: Sequence[HexState], distributions: Sequence[Sequence[float]],
-    ) -> torch.Tensor:
-        targets = torch.tensor(distributions, dtype=torch.float32)
-        second_player_states = [state.player == Player.SECOND for state in states]
-        targets[second_player_states, :] = (
-            targets[second_player_states, :]
-            .reshape((-1, self.grid_size, self.grid_size))
-            .transpose(1, 2)
-            .flatten(start_dim=1)
-        )
-        assert targets.shape == (len(distributions), self.grid_size ** 2,)
-        return targets
 
     def copy(self) -> "ConvolutionalHexNet":
         net = ConvolutionalHexNet(
