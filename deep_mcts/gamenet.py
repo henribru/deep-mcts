@@ -10,6 +10,7 @@ from typing import (
     Type,
     TypeVar,
     TYPE_CHECKING,
+    Optional,
 )
 
 import torch
@@ -172,7 +173,9 @@ class GameNet(ABC, Generic[_S]):
 
     @classmethod
     @abstractmethod
-    def from_path_full(cls: Type[_T], path: str) -> _T:
+    def from_path_full(
+        cls: Type[_T], path: str, manager: Optional[GameManager[_S]] = None
+    ) -> _T:
         ...
 
     def load_state_dict(self, state_dict: Dict[str, torch.Tensor]) -> None:

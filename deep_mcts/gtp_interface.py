@@ -134,7 +134,7 @@ class GTPInterface(ABC, Generic[_S]):
         if actual_player != player:
             self.mcts.state = dataclasses.replace(self.mcts.state, player=player)
 
-        action_probabilities = self.mcts.step()
+        action_probabilities, _ = self.mcts.step()
         value, net_action_probabilities = self.net.forward(self.mcts.state)
         print(value, file=sys.stderr)
         print(

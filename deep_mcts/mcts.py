@@ -12,6 +12,7 @@ from typing import (
     Optional,
     Sequence,
 )
+import time
 
 import numpy as np
 
@@ -64,6 +65,7 @@ class MCTS(Generic[_S]):
     dirichlet_alpha: float
     dirichlet_factor: float
     rollout_share: float
+    time_per_move: float
 
     def __init__(
         self,
@@ -75,6 +77,7 @@ class MCTS(Generic[_S]):
         dirichlet_alpha: float = 0.0,
         dirichlet_factor: float = 0.25,
         rollout_share: float = 1.0,
+        time_per_move: float = float("inf"),
     ) -> None:
         if rollout_policy is None and state_evaluator is None:
             raise ValueError("Both rollout_policy and state_evaluator cannot be None")
@@ -88,6 +91,7 @@ class MCTS(Generic[_S]):
         self.dirichlet_alpha = dirichlet_alpha
         self.dirichlet_factor = dirichlet_factor
         self.rollout_share = rollout_share
+        self.time_per_move = time_per_move
 
     def tree_search(self) -> Tuple[List[Node], _S]:
         path = [self.root]
@@ -159,7 +163,7 @@ class MCTS(Generic[_S]):
     def self_play(self) -> Iterable[Tuple[_S, _S, Action, Sequence[float]]]:
         i = 0
         while not self.game_manager.is_final_state(self.state):
-            action_probabilities = self.step()
+            action_probabilities, _ = self.step()
             if i < self.sample_move_cutoff:
                 action = np.random.choice(
                     len(action_probabilities), p=action_probabilities
@@ -182,28 +186,54 @@ class MCTS(Generic[_S]):
                 child.P * (1 - self.dirichlet_factor) + noise[i] * self.dirichlet_factor
             )
 
-    def step(self) -> List[float]:
+    def step(self) -> Tuple[List[float], Tuple[int, int]]:
         if not self.root.children:
             self.expand_node(self.root, self.state)
             self.root.N += 1
         self.add_dirichlet_noise(self.root)
-        for _ in range(self.num_simulations):
-            path, state = self.tree_search()
-            leaf_node = path[-1]
-            evaluation = self.evaluate_leaf(leaf_node, state)
-            self.backpropagate(path, evaluation)
-            if __debug__:
-                if self.game_manager.is_final_state(state):
-                    assert leaf_node.Q(state) == evaluation
+        simulations_with_expansion = 0
+        simulations_without_expansion = 0
+        if self.time_per_move < float("inf"):
+            now = time.perf_counter()
+            while (
+                time.perf_counter() - now < self.time_per_move
+                and simulations_with_expansion + simulations_without_expansion
+                < self.num_simulations
+            ):
+                leaf_state = self.simulation()
+                if self.game_manager.is_final_state(leaf_state):
+                    simulations_without_expansion += 1
                 else:
-                    assert (leaf_node.N, leaf_node.E) == (1, evaluation)
+                    simulations_with_expansion += 1
+        else:
+            for _ in range(self.num_simulations):
+                leaf_state = self.simulation()
+                if self.game_manager.is_final_state(leaf_state):
+                    simulations_without_expansion += 1
+                else:
+                    simulations_with_expansion += 1
         visit_sum = sum(node.N for node in self.root.children.values())
-        return [
-            self.root.children[action].N / visit_sum
-            if action in self.root.children
-            else 0.0
-            for action in range(self.game_manager.num_actions)
-        ]
+        return (
+            [
+                self.root.children[action].N / visit_sum
+                if action in self.root.children
+                else 0.0
+                for action in range(self.game_manager.num_actions)
+            ],
+            (simulations_with_expansion, simulations_without_expansion),
+        )
+
+    def simulation(self) -> _S:
+        path, state = self.tree_search()
+        leaf_node = path[-1]
+        evaluation = self.evaluate_leaf(leaf_node, state)
+        self.backpropagate(path, evaluation)
+        if __debug__:
+            if self.game_manager.is_final_state(state):
+                assert leaf_node.Q(state) == evaluation
+            else:
+                assert (leaf_node.N, leaf_node.E) == (1, evaluation)
+        return state
 
     def reset(self) -> None:
         self.root = Node()
@@ -213,10 +243,14 @@ class MCTS(Generic[_S]):
 class MCTSAgent(Agent[_S], ABC):
     mcts: MCTS[_S]
     epsilon: float
+    current_game_simulation_stats: List[Tuple[int, int]]
+    simulation_stats: List[List[Tuple[int, int]]]
 
     def __init__(self, mcts: MCTS[_S], epsilon: float = 0.0) -> None:
         self.mcts = mcts
         self.epsilon = epsilon
+        self.current_game_simulation_stats = []
+        self.simulation_stats = [self.current_game_simulation_stats]
 
     def play(self, state: _S) -> Action:
         if __debug__ and not any(
@@ -235,7 +269,8 @@ class MCTSAgent(Agent[_S], ABC):
             Node(),
         )
         self.mcts.state = state
-        action_probabilities = self.mcts.step()
+        action_probabilities, simulations = self.mcts.step()
+        self.current_game_simulation_stats.append(simulations)
         action: Action
         if self.epsilon > 0 and random.random() < self.epsilon:
             action = np.random.choice(len(action_probabilities), p=action_probabilities)
@@ -247,6 +282,8 @@ class MCTSAgent(Agent[_S], ABC):
 
     def reset(self) -> None:
         self.mcts.reset()
+        self.current_game_simulation_stats = []
+        self.simulation_stats.append(self.current_game_simulation_stats)
 
 
 def play_random_mcts(manager: GameManager[_S], num_simulations: int) -> None:

@@ -9,7 +9,7 @@ from deep_mcts.train import train, TrainingConfiguration
 if __name__ == "__main__":
     grid_size = 6
     manager = HexWithSwapManager(grid_size)
-    for i in range(20):
+    for i in range(1):
         anet = ConvolutionalHexWithSwapNet(grid_size, manager)
         save_dir = (
             Path(__file__).resolve().parent
@@ -28,6 +28,7 @@ if __name__ == "__main__":
                 sample_move_cutoff=10,
                 dirichlet_alpha=0.33,
                 replay_buffer_max_size=5000,
+                nprocs=25,
             ),
         )
         print("*" * 50)

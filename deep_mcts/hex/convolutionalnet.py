@@ -140,11 +140,13 @@ class ConvolutionalHexNet(GameNet[HexState]):
         return net
 
     @classmethod
-    def from_path_full(cls, path: str) -> "ConvolutionalHexNet":
+    def from_path_full(
+        cls, path: str, manager: Optional[GameManager[HexState]] = None,
+    ) -> "ConvolutionalHexNet":
         parameters = torch.load(path, map_location=torch.device("cpu"))
         net = cls(
             grid_size=parameters["grid_size"],
-            manager=None,
+            manager=manager,
             optimizer_cls=parameters["optimizer_cls"],
             optimizer_args=parameters["optimizer_args"],
             optimizer_kwargs=parameters["optimizer_kwargs"],

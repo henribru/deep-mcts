@@ -119,10 +119,12 @@ class FullyConnectedTicTacToeNet(GameNet[TicTacToeState]):
         return net
 
     @classmethod
-    def from_path_full(cls, path: str) -> "FullyConnectedTicTacToeNet":
+    def from_path_full(
+        cls, path: str, manager: Optional[GameManager[TicTacToeState]] = None,
+    ) -> "FullyConnectedTicTacToeNet":
         parameters = torch.load(path, map_location=torch.device("cpu"))
         net = cls(
-            manager=None,
+            manager=manager,
             optimizer_cls=parameters["optimizer_cls"],
             optimizer_args=parameters["optimizer_args"],
             optimizer_kwargs=parameters["optimizer_kwargs"],
