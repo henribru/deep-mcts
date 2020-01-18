@@ -32,9 +32,7 @@ class OthelloManager(GameManager[OthelloState]):
     pass_move: Action
 
     def __init__(self, grid_size: int) -> None:
-        super().__init__()
-        self.grid_size = grid_size
-        self.num_actions = grid_size ** 2 + 1
+        super().__init__(grid_size, num_actions=grid_size ** 2 + 1)
         self.pass_move = grid_size ** 2
 
     def initial_game_state(self) -> OthelloState:

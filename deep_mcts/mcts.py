@@ -245,12 +245,19 @@ class MCTSAgent(Agent[_S], ABC):
     epsilon: float
     current_game_simulation_stats: List[Tuple[int, int]]
     simulation_stats: List[List[Tuple[int, int]]]
+    reset_fn: Optional[Callable[["MCTSAgent[_S]"], None]]
 
-    def __init__(self, mcts: MCTS[_S], epsilon: float = 0.0) -> None:
+    def __init__(
+        self,
+        mcts: MCTS[_S],
+        epsilon: float = 0.0,
+        reset_fn: Optional[Callable[["MCTSAgent[_S]"], None]] = None,
+    ) -> None:
         self.mcts = mcts
         self.epsilon = epsilon
         self.current_game_simulation_stats = []
         self.simulation_stats = [self.current_game_simulation_stats]
+        self.reset_fn = reset_fn
 
     def play(self, state: _S) -> Action:
         if __debug__ and not any(
@@ -284,6 +291,8 @@ class MCTSAgent(Agent[_S], ABC):
         self.mcts.reset()
         self.current_game_simulation_stats = []
         self.simulation_stats.append(self.current_game_simulation_stats)
+        if self.reset_fn is not None:
+            self.reset_fn(self)
 
 
 def play_random_mcts(manager: GameManager[_S], num_simulations: int) -> None:

@@ -2,7 +2,7 @@ from pathlib import Path
 import re
 import random
 import json
-from typing import Type, TypeVar, List
+from typing import Type, TypeVar, List, Optional, Callable, Tuple, Sequence
 from multiprocessing import Pool
 
 import torch
@@ -37,45 +37,56 @@ def evaluate_models(
     manager: GameManager[_S],
     device: torch.device,
 ) -> None:
+    print(model_dir.name)
     model_file = max(
         (f for f in model_dir.iterdir() if f.name.endswith(".tar")),
         key=lambda f: int(f.name[5:-4]),
     )
-    model = net_class.from_path_full(str(model_file), manager).to(device)  # type: ignore[arg-type]
-    cached_model = cached_state_evaluator(model)
     time_per_move = 1.0
-    for state_evaluator, dir_name in [
-        (None, "without_state_evaluator"),
-        (cached_model, "with_state_evaluator"),
+    for with_state_evaluator, dir_name in [
+        (True, "with_state_evaluator"),
+        (False, "without_state_evaluator"),
     ]:
+        manager_copy = manager.copy()
+        model = net_class.from_path_full(str(model_file), manager_copy).to(device)  # type: ignore[arg-type]
+        cached_model = cached_state_evaluator(model)
         complex_agent = MCTSAgent(
             MCTS(
-                manager,
+                manager_copy,
                 num_simulations=float("inf"),  # type: ignore[arg-type]
                 rollout_policy=lambda state: np.argmax(  # type: ignore[no-any-return]
                     cached_model(state)[1]
                 ),
-                state_evaluator=state_evaluator,
+                state_evaluator=cached_model if with_state_evaluator else None,
                 rollout_share=1.0,
                 time_per_move=time_per_move,
-            )
+            ),
+            reset_fn=reset_caches,
         )
+        manager_copy = manager.copy()
+        state_evaluator: Optional[Callable[[_S], Tuple[float, Sequence[float]]]]
+        if with_state_evaluator:
+            model = net_class.from_path_full(str(model_file), manager_copy).to(device)  # type: ignore[arg-type]
+            state_evaluator = cached_state_evaluator(model)
+        else:
+            state_evaluator = None
+
         simple_agent = MCTSAgent(
             MCTS(
-                manager,
+                manager_copy,
                 num_simulations=float("inf"),  # type: ignore[arg-type]
                 rollout_policy=lambda state: random.choice(
-                    manager.legal_actions(state)
+                    manager_copy.legal_actions(state)
                 ),
                 state_evaluator=state_evaluator,
                 rollout_share=1.0,
                 time_per_move=time_per_move,
-            )
+            ),
+            reset_fn=reset_caches,
         )
         agents = (complex_agent, simple_agent)
         result_dir = model_dir.parent.parent / "complex_rollouts" / dir_name
         result_dir.mkdir(exist_ok=True)
-        print(model_dir.name)
         results = compare_agents(agents, num_games=40, game_manager=manager)
 
         with open(result_dir / f"{model_dir.name}.json", "w") as f:
@@ -87,3 +98,12 @@ def evaluate_models(
                 },
                 f,
             )
+
+
+def reset_caches(agent: MCTSAgent[_S]) -> None:
+    if hasattr(agent.mcts.state_evaluator, "cache_clear"):
+        agent.mcts.state_evaluator.cache_clear()  # type: ignore[union-attr]
+    for attr_name in dir(agent.mcts.game_manager):
+        attr = getattr(agent.mcts.game_manager, attr_name)
+        if callable(attr) and hasattr(attr, "cache_clear"):
+            attr.cache_clear()

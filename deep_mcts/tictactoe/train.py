@@ -11,7 +11,7 @@ if __name__ == "__main__":
     save_dir = (
         Path(__file__).resolve().parent
         / "saves"
-        / datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+        / datetime.datetime.now().strftime("%Y-%m-%dT%H%M%S")
     )
     save_dir.mkdir()
     train(

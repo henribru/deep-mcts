@@ -70,11 +70,16 @@ class State:
 
 _S = TypeVar("_S", bound=State)
 Action = int
+_T = TypeVar("_T", bound="GameManager")  # type: ignore[type-arg]
 
 
 class GameManager(ABC, Generic[_S]):
-    num_actions: int
     grid_size: int
+    num_actions: int
+
+    def __init__(self, grid_size: int, num_actions: int) -> None:
+        self.grid_size = grid_size
+        self.num_actions = num_actions
 
     @abstractmethod
     def initial_game_state(self) -> _S:
@@ -103,3 +108,6 @@ class GameManager(ABC, Generic[_S]):
     def action_str(self, action: Action) -> str:
         x, y = action % self.grid_size, action // self.grid_size
         return str((x, y))
+
+    def copy(self: _T) -> _T:
+        return type(self)(self.grid_size)  # type: ignore[call-arg]

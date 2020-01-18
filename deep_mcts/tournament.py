@@ -43,7 +43,9 @@ def tournament(
         [((0.0, 0.0), (0.0, 0.0), (0.0, 0.0)) for _ in range(len(agents))]
         for _ in range(len(agents))
     ]
-    for (i, agent_1), (j, agent_2) in itertools.combinations(enumerate(agents), 2):
+    for (i, agent_1), (j, agent_2) in itertools.combinations_with_replacement(
+        enumerate(agents), 2
+    ):
         result = compare_agents((agent_1, agent_2), num_games, game_manager)
         results[i][j] = result
         results[j][i] = (result[2], result[1], result[0])
@@ -78,6 +80,12 @@ def compare_agents(
                 second_player_losses += 1
             else:
                 second_player_draws += 1
+        # print(
+        #     k + 1,
+        #     (first_player_wins + second_player_wins) / ((k + 1)),
+        #     2 * first_player_wins / (k + 1),
+        #     2 * second_player_wins / (k + 1),
+        # )
     num_games //= 2
     return (
         (first_player_wins / num_games, second_player_wins / num_games),

@@ -10,9 +10,8 @@ class HexWithSwapManager(HexManager):
     swap_move: Action
 
     def __init__(self, grid_size: int):
-        super().__init__(grid_size)
+        super().__init__(grid_size, num_actions=grid_size ** 2 + 1)
         self.swap_move = grid_size ** 2
-        self.num_actions = grid_size ** 2 + 1
 
     @lru_cache(maxsize=2 ** 20)
     def generate_child_state(  # type: ignore[override]

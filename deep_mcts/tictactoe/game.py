@@ -23,8 +23,7 @@ class TicTacToeState(State):
 
 class TicTacToeManager(GameManager[TicTacToeState]):
     def __init__(self) -> None:
-        self.num_actions = 9
-        self.grid_size = 9
+        super().__init__(grid_size=9, num_actions=9)
 
     def initial_game_state(self) -> TicTacToeState:
         return TicTacToeState(

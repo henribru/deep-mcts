@@ -29,10 +29,10 @@ class HexState(State):
 
 
 class HexManager(GameManager[HexState]):
-    def __init__(self, grid_size: int) -> None:
-        super().__init__()
-        self.grid_size = grid_size
-        self.num_actions = grid_size ** 2
+    def __init__(self, grid_size: int, num_actions: Optional[int] = None) -> None:
+        if num_actions is None:
+            num_actions = grid_size ** 2
+        super().__init__(grid_size, num_actions)
 
     def initial_game_state(self) -> HexState:
         return HexState(
