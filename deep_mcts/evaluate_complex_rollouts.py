@@ -87,14 +87,14 @@ def evaluate_models(
         agents = (complex_agent, simple_agent)
         result_dir = model_dir.parent.parent / "complex_rollouts" / dir_name
         result_dir.mkdir(exist_ok=True)
-        results = compare_agents(agents, num_games=40, game_manager=manager)
+        results = compare_agents(agents, num_games=240, game_manager=manager)
 
         with open(result_dir / f"{model_dir.name}.json", "w") as f:
             json.dump(
                 {
                     "results": results,
-                    "average_complex_simulations": complex_agent.simulation_stats,
-                    "average_simple_simulations": simple_agent.simulation_stats,
+                    "complex_simulations": complex_agent.simulation_stats,
+                    "simple_simulations": simple_agent.simulation_stats,
                 },
                 f,
             )
