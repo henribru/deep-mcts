@@ -48,7 +48,7 @@ def evaluate_models(
         (False, "without_state_evaluator"),
     ]:
         manager_copy = manager.copy()
-        model = net_class.from_path_full(str(model_file), manager_copy).to(device)  # type: ignore[arg-type]
+        model = net_class.from_path_full(str(model_file), manager_copy).to(device)
         cached_model = cached_state_evaluator(model)
         complex_agent = MCTSAgent(
             MCTS(
@@ -66,7 +66,7 @@ def evaluate_models(
         manager_copy = manager.copy()
         state_evaluator: Optional[Callable[[_S], Tuple[float, Sequence[float]]]]
         if with_state_evaluator:
-            model = net_class.from_path_full(str(model_file), manager_copy).to(device)  # type: ignore[arg-type]
+            model = net_class.from_path_full(str(model_file), manager_copy).to(device)
             state_evaluator = cached_state_evaluator(model)
         else:
             state_evaluator = None

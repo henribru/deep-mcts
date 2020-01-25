@@ -40,7 +40,7 @@ def evaluate_models(
         key=lambda f: int(f.name[5:-4]),
     )
 
-    model = net_class.from_path_full(str(model_file), manager).to(device)  # type: ignore[arg-type]
+    model = net_class.from_path_full(str(model_file), manager).to(device)
     state_evaluator = cached_state_evaluator(model)
     agents = [
         MCTSAgent(

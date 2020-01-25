@@ -42,7 +42,7 @@ def evaluate_models(
         key=lambda f: int(f.name[5:-4]),
     )
     models = [
-        net_class.from_path_full(str(model_file), manager) for model_file in model_files  # type: ignore[arg-type]
+        net_class.from_path_full(str(model_file), manager) for model_file in model_files
     ]
     random_agent = MCTSAgent(
         MCTS(
