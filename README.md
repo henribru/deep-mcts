@@ -28,7 +28,8 @@ Additionally there are "complex_simulations" and "simple_simulations" keys, corr
 ## Running
 
 ### Setup
-Using [Poetry](https://python-poetry.org/), simply run `poetry install`. If not, manually install the dependencies listed in `pyproject.toml`.
+Using [Poetry](https://python-poetry.org/), run `poetry install`.
+Using `pip`, run `pip install -r requirements.txt`.
 
 ### Experiment 1
 If running on a machine with only one GPU, set both `train_device` and `self_play_device` in `TrainingConfiguration` in `deep_mcts/train.py` to `cuda:0`.
