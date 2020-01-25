@@ -58,9 +58,6 @@ class GameNet(ABC, Generic[_S]):
             self.net.parameters(), *optimizer_args, **optimizer_kwargs
         )
 
-    def forward(self, states: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        return self.net.forward(states)
-
     def evaluate(self, state: _S) -> Tuple[float, torch.Tensor]:
         self.net.eval()
         states = self.states_to_tensor([state]).to(self.device)
@@ -87,14 +84,6 @@ class GameNet(ABC, Generic[_S]):
         probabilities = probabilities.cpu().detach()
         return value, probabilities
 
-    def _mask_illegal_moves(self, state: _S, output: torch.Tensor) -> torch.Tensor:
-        legal_moves = torch.zeros(self.manager.num_actions)
-        legal_moves[self.manager.legal_actions(state)] = 1.0
-        assert legal_moves.shape == output.shape
-        result = output * legal_moves.to(self.device)
-        assert result.shape == output.shape
-        return result
-
     def train(
         self,
         states: torch.Tensor,
@@ -120,19 +109,29 @@ class GameNet(ABC, Generic[_S]):
         self.optimizer.step()
         return policy_loss, value_loss, accuracy_
 
+    def distributions_to_tensor(
+        self, distributions: Sequence[Sequence[float]]
+    ) -> torch.Tensor:
+        targets = torch.tensor(distributions, dtype=torch.float32)
+        assert targets.shape == (len(distributions), self.manager.num_actions)
+        return targets
+
+    def forward(self, states: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        return self.net.forward(states)
+
+    def _mask_illegal_moves(self, state: _S, output: torch.Tensor) -> torch.Tensor:
+        legal_moves = torch.zeros(self.manager.num_actions)
+        legal_moves[self.manager.legal_actions(state)] = 1.0
+        assert legal_moves.shape == output.shape
+        result = output * legal_moves.to(self.device)
+        assert result.shape == output.shape
+        return result
+
     def save(self, path: str) -> None:
         torch.save(self.net.state_dict(), path)
 
     def save_full(self, path: str) -> None:
         torch.save(self.parameters(), path)
-
-    def parameters(self) -> Dict[str, Any]:
-        return {
-            "optimizer_cls": self.optimizer_cls,
-            "optimizer_args": self.optimizer_args,
-            "optimizer_kwargs": self.optimizer_kwargs,
-            "state_dict": self.net.state_dict(),
-        }
 
     def load(self, path: str) -> None:
         if path.endswith(".pth"):
@@ -142,16 +141,17 @@ class GameNet(ABC, Generic[_S]):
                 torch.load(path, map_location=self.device)["state_dict"]
             )
 
+    def parameters(self) -> Dict[str, Any]:
+        return {
+            "optimizer_cls": self.optimizer_cls,
+            "optimizer_args": self.optimizer_args,
+            "optimizer_kwargs": self.optimizer_kwargs,
+            "state_dict": self.net.state_dict(),
+        }
+
     @abstractmethod
     def states_to_tensor(self, states: Sequence[_S]) -> torch.Tensor:
         ...
-
-    def distributions_to_tensor(
-        self, distributions: Sequence[Sequence[float]]
-    ) -> torch.Tensor:
-        targets = torch.tensor(distributions, dtype=torch.float32)
-        assert targets.shape == (len(distributions), self.manager.num_actions)
-        return targets
 
     @abstractmethod
     def copy(self: _T) -> _T:

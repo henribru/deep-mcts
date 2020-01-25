@@ -93,77 +93,6 @@ class MCTS(Generic[_S]):
         self.rollout_share = rollout_share
         self.time_per_move = time_per_move
 
-    def tree_search(self) -> Tuple[List[Node], _S]:
-        path = [self.root]
-        node = self.root
-        state = self.state
-        while node.children:
-            if state.player == Player.max_player():
-                action, node = max(
-                    node.children.items(),
-                    key=lambda a_n: a_n[1].value(state) + a_n[1].u(node),
-                )
-            else:
-                action, node = min(
-                    node.children.items(),
-                    key=lambda a_n: a_n[1].value(state) - a_n[1].u(node),
-                )
-            path.append(node)
-            state = self.game_manager.generate_child_state(state, action)
-        return path, state
-
-    def expand_node(self, node: Node, state: _S) -> float:
-        assert (node.value_sum, node.visits) == (0.0, 0)
-        legal_actions = set(self.game_manager.legal_actions(state))
-        probabilities: Sequence[float]
-        if self.state_evaluator is None:
-            value, probabilities = (
-                0.5,
-                [
-                    1 / len(legal_actions) if action in legal_actions else 0.0
-                    for action in range(self.game_manager.num_actions)
-                ],
-            )
-        else:
-            value, probabilities = self.state_evaluator(state)
-            assert len(probabilities) == self.game_manager.num_actions
-        node.children = {
-            action: Node(probabilities[action]) for action in legal_actions
-        }
-
-        return value
-
-    def rollout(self, node: Node, state: _S) -> float:
-        assert (node.value_sum, node.visits) == (0.0, 0)
-        while not self.game_manager.is_final_state(state):
-            action = self.rollout_policy(state)  # type: ignore[misc]
-            state = self.game_manager.generate_child_state(state, action)
-        return self.game_manager.evaluate_final_state(  # type: ignore[no-any-return]
-            state
-        ).value
-
-    def backpropagate(self, path: Iterable[Node], evaluation: float) -> None:
-        for node in path:
-            node.visits += 1
-            node.value_sum += evaluation
-
-    def evaluate_leaf(self, leaf_node: Node, state: _S) -> float:
-        if self.game_manager.is_final_state(state):
-            return self.game_manager.evaluate_final_state(  # type: ignore[no-any-return]
-                state
-            ).value
-        value = self.expand_node(leaf_node, state)
-        if self.state_evaluator is None:
-            rollout_value = self.rollout(leaf_node, state)
-            return rollout_value
-        elif self.rollout_policy is None or (
-            self.rollout_share < 1.0 and random.random() >= self.rollout_share
-        ):
-            return value
-        else:
-            rollout_value = self.rollout(leaf_node, state)
-            return (rollout_value + value) / 2
-
     def self_play(self) -> Iterable[Tuple[_S, _S, Action, Sequence[float]]]:
         i = 0
         while not self.game_manager.is_final_state(self.state):
@@ -180,16 +109,6 @@ class MCTS(Generic[_S]):
             self.state = self.game_manager.generate_child_state(self.state, action)
             i += 1
             yield old_state, self.state, action, action_probabilities
-
-    def add_dirichlet_noise(self, node: Node) -> None:
-        if self.dirichlet_alpha == 0:
-            return
-        noise = np.random.dirichlet([self.dirichlet_alpha] * len(node.children))
-        for i, child in enumerate(node.children.values()):
-            child.probability = (
-                child.probability * (1 - self.dirichlet_factor)
-                + noise[i] * self.dirichlet_factor
-            )
 
     def step(self) -> Tuple[List[float], Tuple[int, int]]:
         if not self.root.children:
@@ -239,6 +158,87 @@ class MCTS(Generic[_S]):
             else:
                 assert (leaf_node.visits, leaf_node.value_sum) == (1, evaluation)
         return state
+
+    def tree_search(self) -> Tuple[List[Node], _S]:
+        path = [self.root]
+        node = self.root
+        state = self.state
+        while node.children:
+            if state.player == Player.max_player():
+                action, node = max(
+                    node.children.items(),
+                    key=lambda a_n: a_n[1].value(state) + a_n[1].u(node),
+                )
+            else:
+                action, node = min(
+                    node.children.items(),
+                    key=lambda a_n: a_n[1].value(state) - a_n[1].u(node),
+                )
+            path.append(node)
+            state = self.game_manager.generate_child_state(state, action)
+        return path, state
+
+    def evaluate_leaf(self, leaf_node: Node, state: _S) -> float:
+        if self.game_manager.is_final_state(state):
+            return self.game_manager.evaluate_final_state(  # type: ignore[no-any-return]
+                state
+            ).value
+        value = self.expand_node(leaf_node, state)
+        if self.state_evaluator is None:
+            rollout_value = self.rollout(leaf_node, state)
+            return rollout_value
+        elif self.rollout_policy is None or (
+            self.rollout_share < 1.0 and random.random() >= self.rollout_share
+        ):
+            return value
+        else:
+            rollout_value = self.rollout(leaf_node, state)
+            return (rollout_value + value) / 2
+
+    def expand_node(self, node: Node, state: _S) -> float:
+        assert (node.value_sum, node.visits) == (0.0, 0)
+        legal_actions = set(self.game_manager.legal_actions(state))
+        probabilities: Sequence[float]
+        if self.state_evaluator is None:
+            value, probabilities = (
+                0.5,
+                [
+                    1 / len(legal_actions) if action in legal_actions else 0.0
+                    for action in range(self.game_manager.num_actions)
+                ],
+            )
+        else:
+            value, probabilities = self.state_evaluator(state)
+            assert len(probabilities) == self.game_manager.num_actions
+        node.children = {
+            action: Node(probabilities[action]) for action in legal_actions
+        }
+
+        return value
+
+    def rollout(self, node: Node, state: _S) -> float:
+        assert (node.value_sum, node.visits) == (0.0, 0)
+        while not self.game_manager.is_final_state(state):
+            action = self.rollout_policy(state)  # type: ignore[misc]
+            state = self.game_manager.generate_child_state(state, action)
+        return self.game_manager.evaluate_final_state(  # type: ignore[no-any-return]
+            state
+        ).value
+
+    def backpropagate(self, path: Iterable[Node], evaluation: float) -> None:
+        for node in path:
+            node.visits += 1
+            node.value_sum += evaluation
+
+    def add_dirichlet_noise(self, node: Node) -> None:
+        if self.dirichlet_alpha == 0:
+            return
+        noise = np.random.dirichlet([self.dirichlet_alpha] * len(node.children))
+        for i, child in enumerate(node.children.values()):
+            child.probability = (
+                child.probability * (1 - self.dirichlet_factor)
+                + noise[i] * self.dirichlet_factor
+            )
 
     def reset(self) -> None:
         self.root = Node()
